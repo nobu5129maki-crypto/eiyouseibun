@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CameraCapture } from '../components/CameraCapture';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
+import { requestCameraAccess } from '../lib/cameraPermission';
 import { parseNutritionLabelImage } from '../lib/labelOcr';
 import { estimateMealFromText } from '../lib/mealEstimate';
 import {
@@ -50,6 +51,9 @@ export function RecordPage() {
   const { targets, addMeal } = useApp();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState('');
+  const [cameraStarting, setCameraStarting] = useState(false);
 
   const [mealText, setMealText] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -201,8 +205,9 @@ export function RecordPage() {
         <section className="card">
           <h2>栄養成分表示を撮影</h2>
           <p className="muted" style={{ fontSize: '0.85rem' }}>
-            「カメラで撮影」は端末カメラを直接起動します（ファイル選択ではありません）。
-            先にカメラ許可の状態を確認・設定してから撮影してください。
+            「カメラで撮影」はタップ直後にカメラを起動します（画像フォルダは開きません）。
+            Android のプライバシーでカメラONでも、Chrome
+            でこのサイトのカメラ許可が別に必要です。Chrome アプリで開いてください。
             MVP では OCR API の代わりにサンプル解析を返します。
           </p>
 
@@ -212,18 +217,38 @@ export function RecordPage() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={loading}
+              disabled={loading || cameraStarting}
+              data-testid="open-camera-button"
               onClick={() => {
-                setError('');
-                setCameraOpen(true);
+                void (async () => {
+                  setError('');
+                  setCameraError('');
+                  setCameraStarting(true);
+                  // ユーザー操作の同じチェーンで getUserMedia を呼ぶ（Android必須）
+                  const result = await requestCameraAccess();
+                  setCameraStarting(false);
+                  if (result.state === 'granted' && result.stream) {
+                    setCameraStream(result.stream);
+                    setCameraError('');
+                    setCameraOpen(true);
+                    return;
+                  }
+                  setCameraStream(null);
+                  setCameraError(
+                    result.detail ||
+                      'カメラを起動できませんでした。設定を確認してください。',
+                  );
+                  setCameraOpen(true);
+                })();
               }}
             >
-              カメラで撮影
+              {cameraStarting ? 'カメラ起動中…' : 'カメラで撮影'}
             </button>
             <button
               type="button"
               className="btn btn-secondary"
-              disabled={loading}
+              disabled={loading || cameraStarting}
+              data-testid="open-gallery-button"
               onClick={() => galleryInputRef.current?.click()}
             >
               画像を選択
@@ -234,6 +259,7 @@ export function RecordPage() {
             type="file"
             accept="image/*"
             hidden
+            data-testid="gallery-file-input"
             onChange={(e) => {
               void onLabelImage(e.target.files?.[0]);
               e.target.value = '';
@@ -249,9 +275,19 @@ export function RecordPage() {
           )}
           <CameraCapture
             open={cameraOpen}
-            onClose={() => setCameraOpen(false)}
-            onCapture={(file) => {
+            initialStream={cameraStream}
+            initialError={cameraError}
+            onClose={() => {
+              cameraStream?.getTracks().forEach((t) => t.stop());
               setCameraOpen(false);
+              setCameraStream(null);
+              setCameraError('');
+            }}
+            onCapture={(file) => {
+              cameraStream?.getTracks().forEach((t) => t.stop());
+              setCameraOpen(false);
+              setCameraStream(null);
+              setCameraError('');
               void onLabelImage(file);
             }}
           />

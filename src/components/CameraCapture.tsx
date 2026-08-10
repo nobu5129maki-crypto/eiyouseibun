@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CAMERA_PERMISSION_LABELS,
+  bindStreamToVideo,
+  openBrowserCameraSettingsHelp,
   queryCameraPermission,
+  requestCameraAccess,
   type CameraPermissionState,
 } from '../lib/cameraPermission';
 import { CameraPermissionPanel } from './CameraPermissionPanel';
@@ -10,77 +13,136 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onCapture: (file: File) => void;
+  /** 「カメラで撮影」クリック直後に取得したストリーム（ユーザー操作の連続性を保つ） */
+  initialStream?: MediaStream | null;
+  initialError?: string;
 };
 
-function stopStream(stream: MediaStream | null) {
+function stopStream(stream: MediaStream | null | undefined) {
   stream?.getTracks().forEach((track) => track.stop());
 }
 
-export function CameraCapture({ open, onClose, onCapture }: Props) {
+export function CameraCapture({
+  open,
+  onClose,
+  onCapture,
+  initialStream = null,
+  initialError = '',
+}: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  /** 親から渡されたストリームは親が停止する（StrictMode 対策） */
+  const parentOwnedRef = useRef(false);
   const [error, setError] = useState('');
+  const [help, setHelp] = useState('');
   const [ready, setReady] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [phase, setPhase] = useState<'permission' | 'live'>('permission');
   const [permState, setPermState] = useState<CameraPermissionState>('unknown');
+  const [liveEpoch, setLiveEpoch] = useState(0);
 
   useEffect(() => {
     if (!open) return;
-    setError('');
+
+    setError(initialError);
+    setHelp(initialError ? openBrowserCameraSettingsHelp() : '');
     setReady(false);
-    setPhase('permission');
+    setStarting(false);
     void queryCameraPermission().then(setPermState);
 
-    return () => {
-      stopStream(streamRef.current);
+    if (initialStream) {
+      parentOwnedRef.current = true;
+      streamRef.current = initialStream;
+      setPermState('granted');
+      setPhase('live');
+      setLiveEpoch((n) => n + 1);
+    } else {
+      parentOwnedRef.current = false;
       streamRef.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
-      setReady(false);
       setPhase('permission');
-    };
-  }, [open]);
+    }
+  }, [open, initialStream, initialError]);
 
-  // live フェーズに入ったら video にストリームを接続
   useEffect(() => {
     if (!open || phase !== 'live') return;
     const stream = streamRef.current;
     const video = videoRef.current;
     if (!stream || !video) return;
 
+    // 親所有ストリームが既に停止済みなら許可画面へ戻す
+    if (stream.getTracks().every((t) => t.readyState === 'ended')) {
+      setError('カメラ接続が切れました。「カメラを今すぐ起動」を押してください。');
+      setHelp(openBrowserCameraSettingsHelp());
+      setPhase('permission');
+      return;
+    }
+
     let cancelled = false;
-    video.srcObject = stream;
-    void video
-      .play()
+    setStarting(true);
+    void bindStreamToVideo(video, stream)
       .then(() => {
-        if (!cancelled) setReady(true);
+        if (!cancelled) {
+          setReady(true);
+          setStarting(false);
+          if (!initialError) setError('');
+        }
       })
       .catch(() => {
         if (!cancelled) {
-          setError('カメラ映像の再生に失敗しました。もう一度お試しください。');
+          setStarting(false);
+          setReady(false);
+          setError('カメラ映像の表示に失敗しました。下のボタンでもう一度起動してください。');
+          setHelp(openBrowserCameraSettingsHelp());
           setPhase('permission');
-          stopStream(stream);
-          streamRef.current = null;
+          if (!parentOwnedRef.current) {
+            stopStream(stream);
+            streamRef.current = null;
+          }
         }
       });
 
     return () => {
       cancelled = true;
+      if (videoRef.current) videoRef.current.srcObject = null;
     };
-  }, [open, phase]);
+  }, [open, phase, liveEpoch, initialError]);
 
   const handleGrantedStream = (stream: MediaStream) => {
-    stopStream(streamRef.current);
+    if (!parentOwnedRef.current) stopStream(streamRef.current);
+    parentOwnedRef.current = false;
     streamRef.current = stream;
     setPermState('granted');
     setError('');
+    setHelp('');
     setReady(false);
     setPhase('live');
+    setLiveEpoch((n) => n + 1);
+  };
+
+  const retryStart = async () => {
+    setStarting(true);
+    setError('');
+    setHelp('');
+    const result = await requestCameraAccess();
+    setStarting(false);
+    setPermState(result.state);
+    if (result.state === 'granted' && result.stream) {
+      handleGrantedStream(result.stream);
+      return;
+    }
+    setError(result.detail || 'カメラを起動できませんでした。');
+    setHelp(openBrowserCameraSettingsHelp());
+    setPhase('permission');
+  };
+
+  const releaseLocalStream = () => {
+    if (!parentOwnedRef.current) stopStream(streamRef.current);
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
   };
 
   const handleClose = () => {
-    stopStream(streamRef.current);
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    releaseLocalStream();
     onClose();
   };
 
@@ -112,9 +174,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
     const file = new File([blob], `nutrition-label-${Date.now()}.jpg`, {
       type: 'image/jpeg',
     });
-    stopStream(streamRef.current);
-    streamRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
+    releaseLocalStream();
     onCapture(file);
   };
 
@@ -135,8 +195,34 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
           </button>
         </div>
 
+        <div className="alert warning" data-testid="camera-os-vs-site-note">
+          OSの「カメラへのアクセス」がONでも、Chrome
+          でこのサイトのカメラ許可が別に必要です。LINE等のアプリ内ブラウザは非対応のことがあります。
+        </div>
+
         {phase === 'permission' && (
-          <CameraPermissionPanel onGrantedStream={handleGrantedStream} />
+          <>
+            {error && (
+              <div className="alert danger" data-testid="camera-start-error">
+                {error}
+              </div>
+            )}
+            {help && (
+              <div className="alert warning" data-testid="camera-start-help">
+                {help}
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={starting}
+              onClick={() => void retryStart()}
+              data-testid="camera-retry-start"
+            >
+              {starting ? '起動中…' : 'カメラを今すぐ起動'}
+            </button>
+            <CameraPermissionPanel onGrantedStream={handleGrantedStream} />
+          </>
         )}
 
         {phase === 'live' && (
@@ -150,7 +236,9 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
                 autoPlay
               />
               <div className="camera-guide" aria-hidden="true" />
-              {!ready && <p className="camera-status">カメラ映像を準備しています…</p>}
+              {(starting || !ready) && (
+                <p className="camera-status">カメラ映像を準備しています…</p>
+              )}
             </div>
 
             {error && <div className="alert danger">{error}</div>}
@@ -165,6 +253,7 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
                 className="btn btn-primary"
                 disabled={!ready}
                 onClick={() => void handleShutter()}
+                data-testid="camera-shutter"
               >
                 撮影する
               </button>
@@ -172,9 +261,8 @@ export function CameraCapture({ open, onClose, onCapture }: Props) {
                 type="button"
                 className="btn btn-secondary"
                 onClick={() => {
-                  stopStream(streamRef.current);
-                  streamRef.current = null;
-                  if (videoRef.current) videoRef.current.srcObject = null;
+                  releaseLocalStream();
+                  parentOwnedRef.current = false;
                   setReady(false);
                   setPhase('permission');
                   void queryCameraPermission().then(setPermState);

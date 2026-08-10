@@ -127,7 +127,7 @@ export function CameraPermissionPanel({
 
       {!compact && (
         <p className="muted" style={{ fontSize: '0.85rem', margin: 0 }}>
-          栄養成分表示の撮影にはカメラ許可が必要です。「許可する」を押すと、ブラウザの確認が表示されます。
+          OS全体のカメラONとは別に、このサイト（ブラウザ）のカメラ許可が必要です。「許可する」を押すとブラウザの確認が表示されます。
         </p>
       )}
 

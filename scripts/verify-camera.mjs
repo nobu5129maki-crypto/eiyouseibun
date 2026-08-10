@@ -31,7 +31,7 @@ async function openOcrPage(page) {
     localStorage.setItem('eiyouseibun:v2', JSON.stringify(state));
   }, profileState);
   await page.goto(`${BASE}/record?mode=ocr`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: 'カメラで撮影' }).waitFor({
+  await page.getByTestId('open-camera-button').waitFor({
     state: 'visible',
     timeout: 15000,
   });
@@ -52,41 +52,50 @@ async function verifyGrantedFlow() {
     const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = async (constraints) => {
       window.__getUserMediaCalls = (window.__getUserMediaCalls ?? 0) + 1;
+      window.__getUserMediaFromClick = true;
       return original(constraints);
     };
   });
 
   await openOcrPage(page);
 
-  // OCR 画面上に許可パネルがある
   await page.getByTestId('camera-permission-panel').first().waitFor({ state: 'visible' });
-  await page.getByTestId('camera-permission-badge').first().waitFor({ state: 'visible' });
-
-  // 設定方法を表示できる
   await page.getByTestId('camera-permission-settings').first().click();
   await page.getByTestId('camera-permission-help').first().waitFor({ state: 'visible' });
 
-  await page.getByRole('button', { name: 'カメラで撮影' }).click();
-  const dialog = page.getByRole('dialog', { name: 'カメラ撮影' });
-  await dialog.waitFor({ state: 'visible', timeout: 5000 });
-
-  // ダイアログ内でも許可 UI が出る
-  await dialog.getByTestId('camera-permission-panel').waitFor({ state: 'visible' });
-  await dialog
-    .getByTestId('camera-permission-ask')
-    .or(dialog.getByTestId('camera-permission-start'))
-    .click();
+  // 「カメラで撮影」タップで即座に getUserMedia（ファイル選択ではない）
+  await page.getByTestId('open-camera-button').click();
 
   await page.waitForFunction(() => (window.__getUserMediaCalls ?? 0) > 0, null, {
     timeout: 8000,
   });
 
-  const shutter = page.getByRole('button', { name: '撮影する' });
+  const dialog = page.getByRole('dialog', { name: 'カメラ撮影' });
+  await dialog.waitFor({ state: 'visible', timeout: 8000 });
+  await dialog.getByTestId('camera-os-vs-site-note').waitFor({ state: 'visible' });
+
+  // capture 付き input は無いこと
+  const captureInputs = await page.locator('input[capture]').count();
+  if (captureInputs > 0) throw new Error('capture input が残っています');
+
+  // ギャラリー input はカメラボタンでは発火しない
+  const galleryClicked = await page.evaluate(() => {
+    const input = document.querySelector('[data-testid="gallery-file-input"]');
+    if (!input) return false;
+    let clicked = false;
+    input.addEventListener('click', () => {
+      clicked = true;
+    });
+    return clicked;
+  });
+  if (galleryClicked) throw new Error('ギャラリー input が誤ってクリックされました');
+
   await page.waitForFunction(() => {
     const video = document.querySelector('video.camera-video');
     return video && video.readyState >= 2 && video.videoWidth > 0;
-  }, null, { timeout: 10000 });
+  }, null, { timeout: 12000 });
 
+  const shutter = page.getByTestId('camera-shutter');
   await shutter.scrollIntoViewIfNeeded();
   await shutter.click({ force: true });
 
@@ -94,75 +103,53 @@ async function verifyGrantedFlow() {
     state: 'visible',
     timeout: 10000,
   });
-
   const nameValue = await page.locator('#name').inputValue();
   if (!nameValue) throw new Error('OCR 後の食品名が空です');
 
-  // 設定ページにもカメラ設定がある
   await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'カメラ設定' }).waitFor({ state: 'visible' });
-  await page.getByTestId('camera-permission-panel').waitFor({ state: 'visible' });
 
   await browser.close();
-  return { grantedFlow: true, productName: nameValue };
+  return { grantedFlow: true, productName: nameValue, immediateGetUserMedia: true };
 }
 
-async function verifyDeniedFlow() {
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      '--use-fake-device-for-media-stream',
-      // fake-ui を付けない + 権限拒否で denied を再現
-    ],
-  });
+async function verifyDeniedShowsSiteHelp() {
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
-  await context.grantPermissions([], { origin: BASE });
-
   const page = await context.newPage();
+
   await page.addInitScript(() => {
     navigator.mediaDevices.getUserMedia = async () => {
-      const err = new DOMException('Permission denied', 'NotAllowedError');
-      throw err;
+      throw new DOMException('Permission denied', 'NotAllowedError');
     };
-    // permissions.query も denied を返す
-    const deniedStatus = {
+    navigator.permissions.query = async () => ({
       state: 'denied',
       addEventListener() {},
       removeEventListener() {},
       onchange: null,
-    };
-    navigator.permissions.query = async () => deniedStatus;
+    });
   });
 
   await openOcrPage(page);
+  await page.getByTestId('open-camera-button').click();
 
-  const badge = page.getByTestId('camera-permission-badge').first();
-  await badge.waitFor({ state: 'visible' });
-  const badgeText = (await badge.textContent())?.trim();
-  if (badgeText !== '拒否') {
-    throw new Error(`許可バッジが拒否ではありません: ${badgeText}`);
+  const dialog = page.getByRole('dialog', { name: 'カメラ撮影' });
+  await dialog.waitFor({ state: 'visible', timeout: 8000 });
+  await dialog.getByTestId('camera-start-error').waitFor({ state: 'visible' });
+  const err = await dialog.getByTestId('camera-start-error').textContent();
+  if (!err?.includes('サイト') && !err?.includes('拒否')) {
+    throw new Error(`拒否エラー文言が不正: ${err}`);
   }
-
-  await page.getByTestId('camera-permission-ask').first().click();
-  await page.getByTestId('camera-permission-message').first().waitFor({
-    state: 'visible',
-    timeout: 5000,
-  });
-  const msg = await page.getByTestId('camera-permission-message').first().textContent();
-  if (!msg?.includes('拒否')) {
-    throw new Error(`拒否メッセージが不正: ${msg}`);
-  }
-
-  await page.getByTestId('camera-permission-settings').first().click();
-  await page.getByTestId('camera-permission-help').first().waitFor({ state: 'visible' });
+  await dialog.getByTestId('camera-os-vs-site-note').waitFor({ state: 'visible' });
+  await dialog.getByTestId('camera-retry-start').waitFor({ state: 'visible' });
 
   await browser.close();
-  return { deniedFlow: true, badgeText };
+  return { deniedFlow: true };
 }
 
 async function main() {
   const granted = await verifyGrantedFlow();
-  const denied = await verifyDeniedFlow();
+  const denied = await verifyDeniedShowsSiteHelp();
   console.log(JSON.stringify({ ok: true, ...granted, ...denied }, null, 2));
 }
 
