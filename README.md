@@ -3,6 +3,11 @@
 過剰摂取を防ぎ、1日の栄養バランスを管理する Web アプリです。  
 **ブラウザで動作**するため、Expo Go は不要です。
 
+- GitHub: https://github.com/nobu5129maki-crypto/eiyouseibun
+- 本番: https://eiyouseibun.vercel.app
+
+修正のたびに GitHub push と Vercel 本番デプロイを行います。
+
 ## 方針
 
 - 食事そのものの**写真撮影によるカロリー測定は行わない**

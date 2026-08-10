@@ -1,0 +1,14 @@
+---
+description: Push to GitHub and deploy Vercel on every code change
+alwaysApply: true
+---
+
+# Deploy on every change
+
+When you modify this project, always finish with:
+
+1. Commit changes
+2. `git push` to GitHub (`origin`)
+3. `vercel --prod --yes` for production deploy (or confirm GitHub→Vercel auto-deploy succeeded)
+
+Do not leave local-only changes. Expo Go is not used.
