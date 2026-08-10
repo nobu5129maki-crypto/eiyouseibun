@@ -52,8 +52,61 @@ export function normalizeOcrText(text: string): string {
     .replace(/営養成分|栄養成[分份]/g, '栄養成分')
     .replace(/[gGｇ]/g, 'g')
     .replace(/[mMｍ][gGｇ]/g, 'mg')
+    // 小数点の誤認・欠落を復元（7 0g / 7,0g / 22 5g → 7.0 / 22.5）
     .replace(/(\d)\s*[.,]\s*(\d)/g, '$1.$2')
+    .replace(/(\d)\s*[·•‧∙｡]\s*(\d)/g, '$1.$2')
+    .replace(/(\d)\s+(\d)\s*g\b/gi, '$1.$2g')
+    .replace(/(\d{1,2})\s+(\d)\s*(?=\n|$)/g, '$1.$2')
     .replace(/\r/g, '\n');
+}
+
+/**
+ * OCRで小数点が落ちた値を、栄養成分として妥当な範囲へ補正する。
+ * 例: タンパク質 70 → 7.0 / 炭水化物 225 → 22.5
+ */
+export function recoverMissedDecimal(
+  key: keyof NutrientValues,
+  value: number,
+): number {
+  if (!Number.isFinite(value) || value <= 0) return value;
+  // すでに小数なら基本的にそのまま
+  if (!Number.isInteger(value)) return Math.round(value * 100) / 100;
+
+  const asTenth = Math.round((value / 10) * 100) / 100;
+
+  switch (key) {
+    case 'protein_g':
+      // 1食で 50g 超は稀。70→7.0 を優先
+      if (value >= 50 && value <= 300 && asTenth >= 0.5 && asTenth <= 45) {
+        return asTenth;
+      }
+      break;
+    case 'fat_g':
+      if (value >= 40 && value <= 300 && asTenth >= 0.5 && asTenth <= 45) {
+        return asTenth;
+      }
+      break;
+    case 'carb_g':
+      // 225→22.5。1食で 150g 超も稀
+      if (value >= 150 && value <= 600 && asTenth >= 5 && asTenth <= 120) {
+        return asTenth;
+      }
+      break;
+    case 'salt_g':
+      // 19→1.9。食塩 10g 超/食はほぼ誤読
+      if (value >= 10 && value <= 100 && asTenth >= 0.1 && asTenth <= 8) {
+        return asTenth;
+      }
+      break;
+    case 'fiber_g':
+      if (value >= 30 && value <= 200 && asTenth >= 0.5 && asTenth <= 25) {
+        return asTenth;
+      }
+      break;
+    default:
+      break;
+  }
+  return value;
 }
 
 type Pattern = {
@@ -76,6 +129,9 @@ const PATTERNS: Pattern[] = [
     key: 'protein_g',
     label: 'タンパク質',
     regexes: [
+      // 小数点落ち: 7 0g / 7．0g
+      /タンパク質[^0-9\n]{0,16}(\d+)\s*[.\s]\s*(\d)\s*g?/i,
+      /タンパク質[^0-9\n]{0,16}(\d+\.\d+)\s*g?/i,
       /タンパク質[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i,
       /タンパク質[^\d]{0,8}(\d+(?:\.\d+)?)/,
     ],
@@ -83,17 +139,27 @@ const PATTERNS: Pattern[] = [
   {
     key: 'fat_g',
     label: '脂質',
-    regexes: [/脂質[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i],
+    regexes: [
+      /脂質[^0-9\n]{0,16}(\d+)\s*[.\s]\s*(\d)\s*g?/i,
+      /脂質[^0-9\n]{0,16}(\d+\.\d+)\s*g?/i,
+      /脂質[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i,
+    ],
   },
   {
     key: 'carb_g',
     label: '炭水化物',
-    regexes: [/炭水化物[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i],
+    regexes: [
+      /炭水化物[^0-9\n]{0,16}(\d+)\s*[.\s]\s*(\d)\s*g?/i,
+      /炭水化物[^0-9\n]{0,16}(\d+\.\d+)\s*g?/i,
+      /炭水化物[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i,
+    ],
   },
   {
     key: 'salt_g',
     label: '食塩相当量',
     regexes: [
+      /食塩相当量[^0-9\n]{0,16}(\d+)\s*[.\s]\s*(\d)\s*g?/i,
+      /食塩相当量[^0-9\n]{0,16}(\d+\.\d+)\s*g?/i,
       /食塩相当量[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i,
       // ナトリウム mg → 食塩相当量 g 概算（Na mg × 2.54 / 1000）
       /ナトリウム[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*mg/i,
@@ -102,7 +168,10 @@ const PATTERNS: Pattern[] = [
   {
     key: 'fiber_g',
     label: '食物繊維',
-    regexes: [/食物繊維[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i],
+    regexes: [
+      /食物繊維[^0-9\n]{0,16}(\d+)\s*[.\s]\s*(\d)\s*g?/i,
+      /食物繊維[^0-9\n]{0,16}(\d+(?:\.\d+)?)\s*g?/i,
+    ],
   },
 ];
 
@@ -130,7 +199,11 @@ function extractByPatterns(text: string): {
     for (const re of pattern.regexes) {
       const m = text.match(re);
       if (!m?.[1]) continue;
-      let value = pickNumber(m[1]);
+      // グループ2がある場合は小数として結合（7 + 0 → 7.0）
+      let value =
+        m[2] != null
+          ? pickNumber(`${m[1]}.${m[2]}`)
+          : pickNumber(m[1]);
       if (value == null) continue;
 
       // ナトリウム mg → 食塩相当量
@@ -141,6 +214,8 @@ function extractByPatterns(text: string): {
       ) {
         value = Math.round(((value * 2.54) / 1000) * 100) / 100;
       }
+
+      value = recoverMissedDecimal(pattern.key, value);
 
       if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;
       if (pattern.key !== 'energy_kcal' && value > 500) continue;
@@ -178,9 +253,18 @@ function extractByLines(text: string, already: string[]): {
       const nums = [...line.matchAll(/(\d+(?:\.\d+)?)/g)].map((x) => x[1]);
       if (!nums.length) continue;
 
-      // 行末寄りの数値を優先
-      const value = pickNumber(nums[nums.length - 1]);
+      // 行末寄りの数値を優先。スペース区切り小数も試す
+      let raw = nums[nums.length - 1];
+      if (
+        nums.length >= 2 &&
+        /^\d$/.test(nums[nums.length - 1]) &&
+        /^\d{1,3}$/.test(nums[nums.length - 2])
+      ) {
+        raw = `${nums[nums.length - 2]}.${nums[nums.length - 1]}`;
+      }
+      let value = pickNumber(raw);
       if (value == null) continue;
+      value = recoverMissedDecimal(pattern.key, value);
       if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;
       if (pattern.key !== 'energy_kcal' && value > 500) continue;
 
@@ -222,6 +306,12 @@ export function parseNutritionText(rawText: string): ParsedNutrition {
   apply(primary.nutrients, primary.matchedKeys);
   apply(secondary.nutrients, secondary.matchedKeys);
   apply(lineFallback.nutrients, lineFallback.matchedKeys);
+
+  for (const pattern of PATTERNS) {
+    const current = nutrients[pattern.key];
+    if (current == null || current === 0) continue;
+    nutrients[pattern.key] = recoverMissedDecimal(pattern.key, current);
+  }
 
   const core = ['タンパク質', '脂質', '炭水化物', '食塩相当量', 'エネルギー'];
   const hit = core.filter((k) => matchedKeys.includes(k)).length;
@@ -282,8 +372,21 @@ export function mergeParsedResults(results: ParsedNutrition[]): ParsedNutrition 
         buckets.push({ value: vote.value, score: weight });
       }
     }
+    // 10倍ずれ（7.0 vs 70）があるときは小さい方（小数復元側）を優先
+    for (const a of buckets) {
+      for (const b of buckets) {
+        if (a === b) continue;
+        const hi = Math.max(a.value, b.value);
+        const lo = Math.min(a.value, b.value);
+        if (lo > 0 && Math.abs(hi / lo - 10) < 0.05) {
+          const smaller = a.value < b.value ? a : b;
+          smaller.score += 3;
+        }
+      }
+    }
+
     buckets.sort((a, b) => b.score - a.score);
-    nutrients[key] = buckets[0].value;
+    nutrients[key] = recoverMissedDecimal(key, buckets[0].value);
     const label = PATTERNS.find((p) => p.key === key)?.label;
     if (label) matchedKeys.push(label);
   }

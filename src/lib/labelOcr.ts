@@ -28,7 +28,7 @@ async function getWorker(): Promise<Worker> {
   return workerPromise;
 }
 
-type PreprocessMode = 'contrast' | 'binarize' | 'sharp';
+type PreprocessMode = 'contrast' | 'soft' | 'sharp';
 
 async function loadBitmap(file: Blob): Promise<ImageBitmap> {
   return createImageBitmap(file);
@@ -36,8 +36,9 @@ async function loadBitmap(file: Blob): Promise<ImageBitmap> {
 
 async function preprocessImage(file: Blob, mode: PreprocessMode): Promise<Blob> {
   const bitmap = await loadBitmap(file);
-  const maxSide = 2000;
-  const upscale = mode === 'sharp' ? 2.2 : 1.85;
+  const maxSide = 2200;
+  // 小数点を残すため過度な拡大・二値化は避ける
+  const upscale = mode === 'sharp' ? 2.4 : mode === 'soft' ? 2.0 : 1.9;
   const scale = Math.min(upscale, maxSide / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
@@ -61,33 +62,26 @@ async function preprocessImage(file: Blob, mode: PreprocessMode): Promise<Blob> 
   const image = ctx.getImageData(0, 0, width, height);
   const data = image.data;
 
-  // 平均輝度で閾値を調整
   let sum = 0;
   for (let i = 0; i < data.length; i += 4) {
     sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
   }
   const mean = sum / (data.length / 4);
-  const hi = Math.min(210, mean + 35);
-  const lo = Math.max(70, mean - 40);
 
   for (let i = 0; i < data.length; i += 4) {
     let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
 
     if (mode === 'sharp') {
-      // 簡易シャープ: コントラスト強め
-      gray = (gray - mean) * 1.45 + mean;
+      gray = (gray - mean) * 1.35 + mean;
     } else if (mode === 'contrast') {
-      gray = (gray - mean) * 1.25 + mean;
-    }
-
-    let v: number;
-    if (mode === 'binarize') {
-      v = gray > mean ? 255 : 0;
+      gray = (gray - mean) * 1.2 + mean;
     } else {
-      const boosted = gray < mean ? gray * 0.82 : Math.min(255, gray * 1.18);
-      v = boosted > hi ? 255 : boosted < lo ? 0 : boosted;
+      // soft: 小数点などの細い点を残す
+      gray = (gray - mean) * 1.1 + mean;
     }
 
+    // 完全二値化はしない（小数点が消えやすい）
+    const v = Math.max(0, Math.min(255, gray));
     data[i] = v;
     data[i + 1] = v;
     data[i + 2] = v;
@@ -144,17 +138,16 @@ export async function parseNutritionLabelImage(file: File): Promise<LabelOcrResu
   if (testResult) return testResult;
 
   const worker = await getWorker();
-  const modes: PreprocessMode[] = ['contrast', 'binarize', 'sharp'];
+  const modes: PreprocessMode[] = ['soft', 'contrast', 'sharp'];
   const passes: Awaited<ReturnType<typeof recognizeOne>>[] = [];
 
-  // 原画像も1回
+  // 原画像も1回（小数点保持に有利）
   passes.push(await recognizeOne(worker, file, PSM.SINGLE_BLOCK));
 
   for (const mode of modes) {
     const processed = await preprocessImage(file, mode);
     passes.push(await recognizeOne(worker, processed, PSM.SINGLE_BLOCK));
-    // コントラスト版だけ列モードも試す
-    if (mode === 'contrast') {
+    if (mode === 'soft' || mode === 'contrast') {
       passes.push(await recognizeOne(worker, processed, PSM.SINGLE_COLUMN));
     }
   }

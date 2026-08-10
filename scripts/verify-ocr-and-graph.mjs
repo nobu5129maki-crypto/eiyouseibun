@@ -20,6 +20,17 @@ function isSameDayUtcBug(iso, day = todayKey()) {
   return iso.slice(0, 10) === day;
 }
 
+function recoverMissedDecimal(key, value) {
+  if (!Number.isFinite(value) || value <= 0) return value;
+  if (!Number.isInteger(value)) return Math.round(value * 100) / 100;
+  const asTenth = Math.round((value / 10) * 100) / 100;
+  if (key === 'protein_g' && value >= 50 && value <= 300 && asTenth <= 45) return asTenth;
+  if (key === 'fat_g' && value >= 40 && value <= 300 && asTenth <= 45) return asTenth;
+  if (key === 'carb_g' && value >= 150 && value <= 600 && asTenth <= 120) return asTenth;
+  if (key === 'salt_g' && value >= 10 && value <= 100 && asTenth <= 8) return asTenth;
+  return value;
+}
+
 function normalizeOcrText(text) {
   return text
     .replace(/\u3000/g, ' ')
@@ -33,7 +44,8 @@ function normalizeOcrText(text) {
     .replace(/熱\s*量/g, 'エネルギー')
     .replace(/営養成分|栄養成[分份]/g, '栄養成分')
     .replace(/たん(ぱ|ば)?く質|蛋白質|タンパク質/g, 'タンパク質')
-    .replace(/脂\s*質/g, '脂質');
+    .replace(/脂\s*質/g, '脂質')
+    .replace(/(\d)\s+(\d)\s*g\b/gi, '$1.$2g');
 }
 
 function parseNutritionText(rawText) {
@@ -54,7 +66,7 @@ function parseNutritionText(rawText) {
   ];
   for (const [key, re] of patterns) {
     const m = text.match(re);
-    if (m) nutrients[key] = Number(m[1]);
+    if (m) nutrients[key] = recoverMissedDecimal(key, Number(m[1]));
   }
   return nutrients;
 }
@@ -90,6 +102,29 @@ const parsedNoisy = parseNutritionText(noisy);
 assert.equal(parsedNoisy.energy_kcal, 203);
 assert.equal(parsedNoisy.protein_g, 7);
 assert.equal(parsedNoisy.fat_g, 9.4);
+
+// 小数点落ち（ユーザー報告）
+const lostDot = `
+栄養成分表示 1袋当たり
+熱量 203kcal
+たんぱく質 70g
+脂質 94g
+炭水化物 225g
+食塩相当量 19g
+`;
+const parsedLost = parseNutritionText(lostDot);
+assert.equal(parsedLost.protein_g, 7);
+assert.equal(parsedLost.fat_g, 9.4);
+assert.equal(parsedLost.carb_g, 22.5);
+assert.equal(parsedLost.salt_g, 1.9);
+
+const spaced = `
+タンパク質 7 0g
+炭水化物 22 5g
+`;
+const parsedSpaced = parseNutritionText(spaced);
+assert.equal(parsedSpaced.protein_g, 7);
+assert.equal(parsedSpaced.carb_g, 22.5);
 
 // JST 早朝に UTC 日付が前日になるケース
 const localMorning = new Date();
