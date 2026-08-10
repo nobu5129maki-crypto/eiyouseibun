@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { CameraCapture } from '../components/CameraCapture';
 import { parseNutritionLabelImage } from '../lib/labelOcr';
 import { estimateMealFromText } from '../lib/mealEstimate';
 import {
@@ -46,8 +47,8 @@ export function RecordPage() {
     modeParam === 'manual' ? 'manual' : modeParam === 'ocr' ? 'ocr' : 'text';
   const navigate = useNavigate();
   const { targets, addMeal } = useApp();
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   const [mealText, setMealText] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -199,6 +200,7 @@ export function RecordPage() {
         <section className="card">
           <h2>栄養成分表示を撮影</h2>
           <p className="muted" style={{ fontSize: '0.85rem' }}>
+            「カメラで撮影」は端末カメラを直接起動します（ファイル選択ではありません）。
             パッケージ側面などの「栄養成分表示」を枠に収めて撮影してください。
             MVP では OCR API の代わりにサンプル解析を返します。
           </p>
@@ -207,7 +209,10 @@ export function RecordPage() {
               type="button"
               className="btn btn-primary"
               disabled={loading}
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => {
+                setError('');
+                setCameraOpen(true);
+              }}
             >
               カメラで撮影
             </button>
@@ -220,17 +225,6 @@ export function RecordPage() {
               画像を選択
             </button>
           </div>
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => {
-              void onLabelImage(e.target.files?.[0]);
-              e.target.value = '';
-            }}
-          />
           <input
             ref={galleryInputRef}
             type="file"
@@ -249,6 +243,14 @@ export function RecordPage() {
               className="label-preview"
             />
           )}
+          <CameraCapture
+            open={cameraOpen}
+            onClose={() => setCameraOpen(false)}
+            onCapture={(file) => {
+              setCameraOpen(false);
+              void onLabelImage(file);
+            }}
+          />
         </section>
       )}
 

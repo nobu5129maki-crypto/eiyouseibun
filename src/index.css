@@ -323,3 +323,82 @@ a {
   color: var(--ink-muted);
   font-family: var(--font);
 }
+
+.camera-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(20, 35, 26, 0.72);
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  overflow: auto;
+}
+
+.camera-panel {
+  width: min(520px, 100%);
+  max-height: min(92vh, 860px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.camera-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.camera-view {
+  position: relative;
+  background: #0f1a14;
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+  height: min(42vh, 360px);
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #0f1a14;
+}
+
+.camera-guide {
+  pointer-events: none;
+  position: absolute;
+  inset: 12% 8%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.18);
+}
+
+.camera-status {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  margin: 0;
+  text-align: center;
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+.camera-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  padding-top: 4px;
+}
+
+.camera-actions .btn {
+  flex: 1;
+}

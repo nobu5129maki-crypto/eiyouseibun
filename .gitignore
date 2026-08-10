@@ -9,3 +9,5 @@ dist-web-check/
 expo-env.d.ts
 /ios
 /android
+
+.vercel
