@@ -50,11 +50,14 @@ async function main() {
     };
   });
 
-  await page.goto(BASE, { waitUntil: 'networkidle' });
-  await page.evaluate((state) => {
+  await page.addInitScript((state) => {
     localStorage.setItem('eiyouseibun:v2', JSON.stringify(state));
   }, profileState);
-  await page.goto(`${BASE}/record?mode=ocr`, { waitUntil: 'networkidle' });
+  await page.goto(`${BASE}/record?mode=ocr`, { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: 'カメラで撮影' }).waitFor({
+    state: 'visible',
+    timeout: 15000,
+  });
 
   const cameraBtn = page.getByRole('button', { name: 'カメラで撮影' });
   await cameraBtn.waitFor({ state: 'visible' });
