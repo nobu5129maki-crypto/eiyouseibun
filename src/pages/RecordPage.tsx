@@ -104,6 +104,39 @@ export function RecordPage() {
     }));
   };
 
+  const discardReading = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
+    setDisplayName('');
+    setNutrients({ ...EMPTY });
+    setConfidence(null);
+    setMatched([]);
+    setRawText('');
+    setNote('');
+    setError('');
+    setReadyToEdit(mode === 'manual');
+    setInputMethod(mode === 'manual' ? 'manual' : mode === 'ocr' ? 'ocr_label' : 'text');
+  };
+
+  const startCameraCapture = async () => {
+    setError('');
+    setCameraError('');
+    setCameraStarting(true);
+    const result = await requestCameraAccess();
+    setCameraStarting(false);
+    if (result.state === 'granted' && result.stream) {
+      setCameraStream(result.stream);
+      setCameraError('');
+      setCameraOpen(true);
+      return;
+    }
+    setCameraStream(null);
+    setCameraError(
+      result.detail || 'カメラを起動できませんでした。設定を確認してください。',
+    );
+    setCameraOpen(true);
+  };
+
   const onEstimate = () => {
     const result = estimateMealFromText(mealText);
     if (!result.displayName && result.confidence === 0) {
@@ -238,28 +271,7 @@ export function RecordPage() {
               className="btn btn-primary"
               disabled={loading || cameraStarting}
               data-testid="open-camera-button"
-              onClick={() => {
-                void (async () => {
-                  setError('');
-                  setCameraError('');
-                  setCameraStarting(true);
-                  // ユーザー操作の同じチェーンで getUserMedia を呼ぶ（Android必須）
-                  const result = await requestCameraAccess();
-                  setCameraStarting(false);
-                  if (result.state === 'granted' && result.stream) {
-                    setCameraStream(result.stream);
-                    setCameraError('');
-                    setCameraOpen(true);
-                    return;
-                  }
-                  setCameraStream(null);
-                  setCameraError(
-                    result.detail ||
-                      'カメラを起動できませんでした。設定を確認してください。',
-                  );
-                  setCameraOpen(true);
-                })();
-              }}
+              onClick={() => void startCameraCapture()}
             >
               {cameraStarting ? 'カメラ起動中…' : 'カメラで撮影'}
             </button>
@@ -320,6 +332,34 @@ export function RecordPage() {
       {readyToEdit && (
         <form className="card stack" onSubmit={onSubmit}>
           <h2>記録内容（確認・編集）</h2>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>
+            数値が違う場合は手で直すか、破棄して再撮影してください。
+          </p>
+
+          {(mode === 'ocr' || inputMethod === 'ocr_label') && (
+            <div className="row">
+              <button
+                type="button"
+                className="btn btn-danger"
+                data-testid="discard-reading"
+                onClick={discardReading}
+              >
+                読み取りを破棄
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                data-testid="retake-photo"
+                disabled={loading || cameraStarting}
+                onClick={() => {
+                  discardReading();
+                  void startCameraCapture();
+                }}
+              >
+                再撮影する
+              </button>
+            </div>
+          )}
 
           <div className="field">
             <label htmlFor="name">食品名</label>

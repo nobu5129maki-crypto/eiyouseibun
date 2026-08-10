@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ProgressBar } from '../components/ProgressBar';
 import { formatDisplayDate, formatTime } from '../lib/date';
 import {
@@ -23,7 +23,8 @@ function round(n: number) {
 }
 
 export function HomePage() {
-  const { profile, targets, todayIntake, todayMeals, advice } = useApp();
+  const navigate = useNavigate();
+  const { profile, targets, todayIntake, todayMeals, advice, deleteMeal } = useApp();
   if (!profile || !targets) return null;
 
   const overs = PRIMARY_NUTRIENTS.filter((n) => {
@@ -126,17 +127,52 @@ export function HomePage() {
         ) : (
           todayMeals.map((meal) => (
             <div key={meal.id} className="meal-row">
-              <div>
+              <div style={{ flex: 1 }}>
                 <strong>{meal.displayName}</strong>
-                <span className="muted" style={{ fontSize: '0.8rem' }}>
+                <div className="muted" style={{ fontSize: '0.8rem' }}>
                   {MEAL_SLOT_LABEL[meal.mealSlot]} ・ {formatTime(meal.loggedAt)} ・{' '}
                   {Math.round(meal.nutrients.energy_kcal)} kcal
-                </span>
+                </div>
+                <div className="muted" style={{ fontSize: '0.8rem' }}>
+                  タンパク質 {Math.round(meal.nutrients.protein_g * 10) / 10}g / 炭水化物{' '}
+                  {Math.round(meal.nutrients.carb_g * 10) / 10}g
+                </div>
               </div>
-              <span className="muted" style={{ fontSize: '0.8rem' }}>
-                タンパク質 {Math.round(meal.nutrients.protein_g)}g / 炭水化物{' '}
-                {Math.round(meal.nutrients.carb_g)}g
-              </span>
+              <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                  data-testid={`delete-meal-${meal.id}`}
+                  onClick={() => {
+                    if (confirm(`「${meal.displayName}」を削除しますか？`)) {
+                      deleteMeal(meal.id);
+                    }
+                  }}
+                >
+                  削除
+                </button>
+                {meal.inputMethod === 'ocr_label' && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                    data-testid={`retake-meal-${meal.id}`}
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `「${meal.displayName}」を削除して再撮影しますか？`,
+                        )
+                      ) {
+                        deleteMeal(meal.id);
+                        navigate('/record?mode=ocr');
+                      }
+                    }}
+                  >
+                    再撮影
+                  </button>
+                )}
+              </div>
             </div>
           ))
         )}
