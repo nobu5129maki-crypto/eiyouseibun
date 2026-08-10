@@ -1,4 +1,6 @@
+import { createWorker, type Worker } from 'tesseract.js';
 import type { NutrientValues } from '../types';
+import { parseNutritionText } from './parseNutritionText';
 
 export type LabelOcrResult = {
   productName: string;
@@ -8,67 +10,91 @@ export type LabelOcrResult = {
   confidence: number;
 };
 
-const SAMPLES: LabelOcrResult[] = [
-  {
-    productName: 'カップ麺（ラベル読取）',
-    servingLabel: '1食（78g）あたり',
-    nutrients: {
-      energy_kcal: 358,
-      protein_g: 8.2,
-      fat_g: 14.5,
-      carb_g: 49.8,
-      salt_g: 5.2,
-      fiber_g: 2.1,
-    },
-    rawText:
-      '栄養成分表示（1食あたり）\nエネルギー 358kcal\nたんぱく質 8.2g\n脂質 14.5g\n炭水化物 49.8g\n食塩相当量 5.2g',
-    confidence: 0.86,
-  },
-  {
-    productName: 'ヨーグルト（ラベル読取）',
-    servingLabel: '1個（100g）あたり',
-    nutrients: {
-      energy_kcal: 67,
-      protein_g: 4.3,
-      fat_g: 3.0,
-      carb_g: 5.2,
-      salt_g: 0.1,
-      calcium_mg: 120,
-      vitamin_c_mg: 0,
-      fiber_g: 0,
-    },
-    rawText:
-      '栄養成分表示（100gあたり）\nエネルギー 67kcal\nたんぱく質 4.3g\n脂質 3.0g\n炭水化物 5.2g\n食塩相当量 0.1g\nカルシウム 120mg',
-    confidence: 0.91,
-  },
-  {
-    productName: 'サラダチキン（ラベル読取）',
-    servingLabel: '1パック（100g）あたり',
-    nutrients: {
-      energy_kcal: 113,
-      protein_g: 23.0,
-      fat_g: 1.5,
-      carb_g: 1.2,
-      salt_g: 1.8,
-      iron_mg: 0.4,
-    },
-    rawText:
-      '栄養成分表示（100gあたり）\nエネルギー 113kcal\nたんぱく質 23.0g\n脂質 1.5g\n炭水化物 1.2g\n食塩相当量 1.8g',
-    confidence: 0.88,
-  },
-];
+let workerPromise: Promise<Worker> | null = null;
 
-/**
- * 栄養成分表示画像の OCR（MVP: 実APIの代わりにサンプル解析）。
- * 本番では Cloud Vision 等へ差し替え。
- */
-export async function parseNutritionLabelImage(
-  _file: File,
-): Promise<LabelOcrResult> {
-  await delay(900);
-  return SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
+async function getWorker(): Promise<Worker> {
+  if (!workerPromise) {
+    workerPromise = (async () => {
+      const worker = await createWorker('jpn+eng', 1, {
+        logger: () => undefined,
+      });
+      return worker;
+    })();
+  }
+  return workerPromise;
 }
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/** コントラスト強調して OCR 精度を上げる */
+async function preprocessImage(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const maxSide = 1800;
+  const scale = Math.min(1.8, maxSide / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    bitmap.close();
+    return file;
+  }
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const image = ctx.getImageData(0, 0, width, height);
+  const data = image.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    // コントラスト強調 + 軽い二値化寄り
+    const boosted = gray < 140 ? gray * 0.75 : Math.min(255, gray * 1.25);
+    const v = boosted > 165 ? 255 : boosted < 110 ? 0 : boosted;
+    data[i] = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+  }
+  ctx.putImageData(image, 0, 0);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/png', 1),
+  );
+  return blob ?? file;
+}
+
+/**
+ * 栄養成分表示画像を OCR し、PFC・食塩などを抽出する。
+ */
+export async function parseNutritionLabelImage(file: File): Promise<LabelOcrResult> {
+  const processed = await preprocessImage(file);
+  const worker = await getWorker();
+  const { data } = await worker.recognize(processed);
+  const rawText = data.text || '';
+  const parsed = parseNutritionText(rawText);
+
+  const hasCore =
+    (parsed.nutrients.protein_g ?? 0) > 0 ||
+    (parsed.nutrients.fat_g ?? 0) > 0 ||
+    (parsed.nutrients.carb_g ?? 0) > 0 ||
+    (parsed.nutrients.energy_kcal ?? 0) > 0;
+
+  if (!hasCore) {
+    throw new Error(
+      '栄養成分の数値を読み取れませんでした。文字がはっきり写るように再度撮影してください。',
+    );
+  }
+
+  const ocrConf = Number.isFinite(data.confidence) ? data.confidence / 100 : 0.5;
+  const confidence = Math.min(0.96, Math.max(0.4, (parsed.confidence + ocrConf) / 2));
+
+  return {
+    productName: '栄養成分表示（読取）',
+    servingLabel: parsed.servingLabel,
+    nutrients: parsed.nutrients,
+    rawText,
+    confidence,
+  };
 }

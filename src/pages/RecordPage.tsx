@@ -138,8 +138,13 @@ export function RecordPage() {
       setNote(parsed.servingLabel);
       setInputMethod('ocr_label');
       setReadyToEdit(true);
-    } catch {
-      setError('栄養成分表示の読み取りに失敗しました。もう一度お試しください。');
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : '栄養成分表示の読み取りに失敗しました。もう一度お試しください。';
+      setError(message);
+      setReadyToEdit(false);
     } finally {
       setLoading(false);
     }
@@ -151,21 +156,35 @@ export function RecordPage() {
       setError('食品名を入力してください');
       return;
     }
-    if (
-      nutrients.protein_g + nutrients.fat_g + nutrients.carb_g + nutrients.energy_kcal <=
-      0
-    ) {
+    const energy = Number(nutrients.energy_kcal) || 0;
+    const protein = Number(nutrients.protein_g) || 0;
+    const fat = Number(nutrients.fat_g) || 0;
+    const carb = Number(nutrients.carb_g) || 0;
+    const salt = Number(nutrients.salt_g) || 0;
+    if (protein + fat + carb + energy <= 0) {
       setError('栄養素を入力または読み取ってください');
       return;
     }
-    addMeal({
+    const saved = addMeal({
       displayName: displayName.trim(),
       mealSlot,
       inputMethod,
       note: note || undefined,
-      nutrients,
+      nutrients: {
+        ...nutrients,
+        energy_kcal: energy,
+        protein_g: protein,
+        fat_g: fat,
+        carb_g: carb,
+        salt_g: salt,
+        fiber_g: Number(nutrients.fiber_g) || 0,
+      },
     });
-    navigate('/');
+    if (!saved?.id) {
+      setError('記録の保存に失敗しました。もう一度お試しください。');
+      return;
+    }
+    navigate('/', { replace: true });
   };
 
   return (
@@ -265,7 +284,11 @@ export function RecordPage() {
               e.target.value = '';
             }}
           />
-          {loading && <p className="muted">読み取り中…</p>}
+          {loading && (
+            <p className="muted">
+              栄養成分を読み取り中です（初回は日本語OCRデータの取得に少し時間がかかります）…
+            </p>
+          )}
           {imagePreview && (
             <img
               src={imagePreview}

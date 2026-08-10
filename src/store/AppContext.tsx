@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -29,7 +30,7 @@ type AppContextValue = {
   todayIntake: NutrientValues;
   advice: AdviceItem[];
   saveProfile: (profile: UserProfile) => void;
-  addMeal: (meal: Omit<MealLog, 'id' | 'loggedAt'> & { loggedAt?: string }) => void;
+  addMeal: (meal: Omit<MealLog, 'id' | 'loggedAt'> & { loggedAt?: string }) => MealLog;
   deleteMeal: (id: string) => void;
   clearAll: () => void;
 };
@@ -45,6 +46,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [targets, setTargets] = useState<DailyTargets | null>(null);
   const [meals, setMeals] = useState<MealLog[]>([]);
+  const stateRef = useRef({ profile, targets, meals });
+  stateRef.current = { profile, targets, meals };
 
   useEffect(() => {
     const state = loadAppState();
@@ -60,6 +63,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       targets: DailyTargets | null;
       meals: MealLog[];
     }) => {
+      stateRef.current = next;
       setProfile(next.profile);
       setTargets(next.targets);
       setMeals(next.meals);
@@ -71,9 +75,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const saveProfile = useCallback(
     (nextProfile: UserProfile) => {
       const nextTargets = calculateDailyTargets(nextProfile);
-      persist({ profile: nextProfile, targets: nextTargets, meals });
+      persist({
+        profile: nextProfile,
+        targets: nextTargets,
+        meals: stateRef.current.meals,
+      });
     },
-    [meals, persist],
+    [persist],
   );
 
   const addMeal = useCallback(
@@ -83,20 +91,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: createId(),
         loggedAt: meal.loggedAt ?? new Date().toISOString(),
       };
-      persist({ profile, targets, meals: [nextMeal, ...meals] });
+      const current = stateRef.current;
+      persist({
+        profile: current.profile,
+        targets: current.targets,
+        meals: [nextMeal, ...current.meals],
+      });
+      return nextMeal;
     },
-    [meals, persist, profile, targets],
+    [persist],
   );
 
   const deleteMeal = useCallback(
     (id: string) => {
+      const current = stateRef.current;
       persist({
-        profile,
-        targets,
-        meals: meals.filter((m) => m.id !== id),
+        profile: current.profile,
+        targets: current.targets,
+        meals: current.meals.filter((m) => m.id !== id),
       });
     },
-    [meals, persist, profile, targets],
+    [persist],
   );
 
   const clearAll = useCallback(() => {

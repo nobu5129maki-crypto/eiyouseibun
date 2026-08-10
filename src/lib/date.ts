@@ -5,8 +5,11 @@ export function todayKey(date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+/** ISO日時をローカル日付で比較（UTC日付ずれを防ぐ） */
 export function isSameDay(iso: string, day = todayKey()): boolean {
-  return iso.slice(0, 10) === day;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  return todayKey(d) === day;
 }
 
 export function formatTime(iso: string): string {

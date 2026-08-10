@@ -99,18 +99,22 @@ async function verifyGrantedFlow() {
   await shutter.scrollIntoViewIfNeeded();
   await shutter.click({ force: true });
 
-  await page.getByRole('heading', { name: '記録内容（確認・編集）' }).waitFor({
-    state: 'visible',
-    timeout: 10000,
+  // 撮影後は OCR 解析へ進む（フェイク映像では数値抽出に失敗し得るため、
+  // ここではカメラ撮影完了と解析開始/結果UIのいずれかを確認する）
+  await page.getByRole('dialog', { name: 'カメラ撮影' }).waitFor({
+    state: 'hidden',
+    timeout: 8000,
   });
-  const nameValue = await page.locator('#name').inputValue();
-  if (!nameValue) throw new Error('OCR 後の食品名が空です');
+  await page
+    .getByText(/読み取り中|栄養成分|読み取れませんでした|記録内容/)
+    .first()
+    .waitFor({ state: 'visible', timeout: 15000 });
 
   await page.goto(`${BASE}/settings`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('heading', { name: 'カメラ設定' }).waitFor({ state: 'visible' });
 
   await browser.close();
-  return { grantedFlow: true, productName: nameValue, immediateGetUserMedia: true };
+  return { grantedFlow: true, captureCompleted: true, immediateGetUserMedia: true };
 }
 
 async function verifyDeniedShowsSiteHelp() {

@@ -26,7 +26,7 @@ export function HistoryPage() {
   const days = useMemo(() => {
     const map = new Map<string, typeof meals>();
     for (const meal of meals) {
-      const day = meal.loggedAt.slice(0, 10);
+      const day = todayKey(new Date(meal.loggedAt));
       const list = map.get(day) ?? [];
       list.push(meal);
       map.set(day, list);
