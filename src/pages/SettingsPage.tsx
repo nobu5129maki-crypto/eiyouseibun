@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
 import {
   ACTIVITY_LABELS,
   GOAL_LABELS,
@@ -17,6 +18,14 @@ export function SettingsPage() {
         </h1>
         <p className="muted">目標の再計算やデータの管理を行います。</p>
       </header>
+
+      <section className="card">
+        <h2>カメラ設定</h2>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          栄養成分表示の読み取りに使うカメラの許可状態を確認・変更できます。
+        </p>
+        <CameraPermissionPanel />
+      </section>
 
       {profile && targets ? (
         <section className="card">

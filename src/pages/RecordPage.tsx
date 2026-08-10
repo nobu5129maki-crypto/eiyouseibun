@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CameraCapture } from '../components/CameraCapture';
+import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
 import { parseNutritionLabelImage } from '../lib/labelOcr';
 import { estimateMealFromText } from '../lib/mealEstimate';
 import {
@@ -201,9 +202,12 @@ export function RecordPage() {
           <h2>栄養成分表示を撮影</h2>
           <p className="muted" style={{ fontSize: '0.85rem' }}>
             「カメラで撮影」は端末カメラを直接起動します（ファイル選択ではありません）。
-            パッケージ側面などの「栄養成分表示」を枠に収めて撮影してください。
+            先にカメラ許可の状態を確認・設定してから撮影してください。
             MVP では OCR API の代わりにサンプル解析を返します。
           </p>
+
+          <CameraPermissionPanel compact />
+
           <div className="row">
             <button
               type="button"
