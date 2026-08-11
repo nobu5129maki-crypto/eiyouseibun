@@ -286,6 +286,9 @@ export function RecordPage() {
         carb_g: carb,
         salt_g: salt,
         fiber_g: Number(nutrients.fiber_g) || 0,
+        vitamin_c_mg: Number(nutrients.vitamin_c_mg) || 0,
+        calcium_mg: Number(nutrients.calcium_mg) || 0,
+        iron_mg: Number(nutrients.iron_mg) || 0,
       },
     });
     if (!saved?.id) {
@@ -529,6 +532,9 @@ export function RecordPage() {
               ['carb_g', '炭水化物 (g)'],
               ['salt_g', '食塩相当量 (g)'],
               ['fiber_g', '食物繊維 (g)'],
+              ['vitamin_c_mg', 'ビタミンC (mg)'],
+              ['calcium_mg', 'カルシウム (mg)'],
+              ['iron_mg', '鉄 (mg)'],
             ] as const
           ).map(([key, label]) => (
             <div className="field" key={key}>
@@ -536,6 +542,7 @@ export function RecordPage() {
               <input
                 id={key}
                 inputMode="decimal"
+                data-testid={`manual-field-${key}`}
                 value={String(nutrients[key] ?? 0)}
                 onChange={(e) => setField(key, e.target.value)}
               />
