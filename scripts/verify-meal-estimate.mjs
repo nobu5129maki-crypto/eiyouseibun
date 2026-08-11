@@ -185,8 +185,34 @@ const tonkatsuDon = mod.estimateMealFromText('とんかつ丼');
 assert.match(tonkatsuDon.displayName, /かつ丼/);
 assert.equal(tonkatsuDon.matchedKeywords.length, 1);
 
+// ハンバーガー・マクドナルド系
+const bigmac = mod.estimateMealFromText('ビッグマック');
+assert.match(bigmac.displayName, /ビッグマック/);
+approx(bigmac.nutrients.energy_kcal, 557, 1);
+assert.ok(!/マクドナルド（バーガー/.test(bigmac.displayName));
+
+const cheese = mod.estimateMealFromText('チーズバーガー');
+assert.match(cheese.displayName, /チーズバーガー/);
+approx(cheese.nutrients.energy_kcal, 310, 1);
+
+const mcd = mod.estimateMealFromText('マクドナルド');
+assert.match(mcd.displayName, /マクドナルド/);
+assert.ok(mcd.nutrients.energy_kcal > 0);
+
+const fries = mod.estimateMealFromText('マックフライポテト');
+assert.match(fries.displayName, /マックフライ/);
+
+const mos = mod.estimateMealFromText('モスバーガー');
+assert.match(mos.displayName, /モスバーガー/);
+assert.equal(mos.matchedKeywords.length, 1);
+
+const burger = mod.estimateMealFromText('ハンバーガー');
+assert.match(burger.displayName, /ハンバーガー/);
+approx(burger.nutrients.energy_kcal, 280, 1);
+
 console.log('verify-meal-estimate: OK');
 console.log('  かつ丼:', mod.estimateMealFromText('かつ丼').nutrients);
+console.log('  ビッグマック:', bigmac.nutrients);
 console.log('  ワイン120ml:', wine.nutrients);
 console.log('  ハイボール350ml:', highball.nutrients);
 console.log('  日本酒180ml:', sake.nutrients);
