@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
+import { formatTime, todayKey } from '../lib/date';
 import {
   ACTIVITY_LABELS,
   DRI_SOURCE,
@@ -8,8 +9,21 @@ import {
 } from '../lib/targets';
 import { useApp } from '../store/AppContext';
 
+const MEAL_SLOT_LABEL = {
+  breakfast: '朝',
+  lunch: '昼',
+  dinner: '夜',
+  snack: '間食',
+} as const;
+
+const INPUT_LABEL = {
+  ocr_label: 'ラベル読取',
+  text: 'テキスト推測',
+  manual: '手入力',
+} as const;
+
 export function SettingsPage() {
-  const { profile, targets, clearAll, meals } = useApp();
+  const { profile, targets, clearAll, meals, deleteMeal } = useApp();
 
   return (
     <div className="stack">
@@ -72,15 +86,54 @@ export function SettingsPage() {
         <p className="muted">プロフィール未設定です。</p>
       )}
 
-      <section className="card">
+      <section className="card" data-testid="settings-data">
         <h2>データ</h2>
         <p>保存済みの食事記録: {meals.length} 件</p>
-        <p className="muted" style={{ fontSize: '0.85rem' }}>
-          データはこのブラウザの localStorage に保存されます。食事写真の推定は行わず、栄養成分表示の読取のみ画像を使います。
-        </p>
+
+        {meals.length === 0 ? (
+          <p className="muted" style={{ fontSize: '0.85rem' }}>
+            削除できる食事記録はありません。
+          </p>
+        ) : (
+          <div className="stack" style={{ gap: 8 }} data-testid="settings-meal-list">
+            {meals.map((meal) => (
+              <div key={meal.id} className="meal-row" data-testid="settings-meal-row">
+                <div>
+                  <strong>{meal.displayName}</strong>
+                  <div className="muted" style={{ fontSize: '0.8rem' }}>
+                    {todayKey(new Date(meal.loggedAt))} ・{' '}
+                    {MEAL_SLOT_LABEL[meal.mealSlot]} ・ {formatTime(meal.loggedAt)} ・{' '}
+                    {INPUT_LABEL[meal.inputMethod]}
+                  </div>
+                </div>
+                <div className="row">
+                  <span className="muted">
+                    {Math.round(meal.nutrients.energy_kcal)} kcal
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-danger"
+                    style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                    data-testid="settings-delete-meal"
+                    onClick={() => {
+                      if (confirm(`「${meal.displayName}」を削除しますか？`)) {
+                        deleteMeal(meal.id);
+                      }
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         <button
           type="button"
           className="btn btn-danger"
+          style={{ marginTop: 12 }}
+          data-testid="settings-clear-all"
           onClick={() => {
             if (confirm('プロフィールとすべての食事記録を削除しますか？')) {
               clearAll();
