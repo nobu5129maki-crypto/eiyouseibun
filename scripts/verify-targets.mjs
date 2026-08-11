@@ -17,11 +17,13 @@ const settingsSrc = fs.readFileSync(
 );
 
 assert.match(targetsSrc, /食事摂取基準（2025年版）/);
-assert.match(targetsSrc, /TARGET_BASIS_LINES/);
 assert.match(targetsSrc, /mhlw\.go\.jp/);
 assert.match(settingsSrc, /目安の根拠/);
 assert.match(settingsSrc, /DRI_SOURCE/);
-assert.match(settingsSrc, /TARGET_BASIS_LINES/);
+assert.ok(
+  !settingsSrc.includes('TARGET_BASIS_LINES'),
+  'Settings should not list per-nutrient basis lines',
+);
 
 const out = path.join(root, 'scripts', '.tmp-targets.mjs');
 execSync(

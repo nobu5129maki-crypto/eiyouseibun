@@ -5,7 +5,6 @@ import {
   DRI_SOURCE,
   GOAL_LABELS,
   SEX_LABELS,
-  TARGET_BASIS_LINES,
 } from '../lib/targets';
 import { useApp } from '../store/AppContext';
 
@@ -62,22 +61,9 @@ export function SettingsPage() {
             <a href={DRI_SOURCE.url} target="_blank" rel="noreferrer">
               {DRI_SOURCE.name}
             </a>
-            」（{DRI_SOURCE.period}）および一般的なエネルギー推定式に基づく簡易目安です。基準が改定されたときはアプリ側の目安も更新します（最終確認:{' '}
+            」（{DRI_SOURCE.period}）に基づく簡易目安です。基準が改定されたときはアプリ側の目安も更新します（最終確認:{' '}
             {DRI_SOURCE.lastChecked}）。医療上の指示がある場合はそれに従ってください。
           </p>
-          <ul
-            className="muted"
-            style={{
-              fontSize: '0.8rem',
-              paddingLeft: '1.2rem',
-              margin: 0,
-              lineHeight: 1.55,
-            }}
-          >
-            {TARGET_BASIS_LINES.map((line) => (
-              <li key={line.slice(0, 24)}>{line}</li>
-            ))}
-          </ul>
 
           <Link className="btn btn-primary" to="/onboarding" style={{ textAlign: 'center' }}>
             プロフィールを編集・再計算
