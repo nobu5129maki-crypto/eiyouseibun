@@ -33,6 +33,10 @@ assert.match(dbSrc, /牛乳/);
 assert.match(dbSrc, /アーモンド/);
 assert.match(dbSrc, /ミックスナッツ/);
 assert.match(dbSrc, /くるみ/);
+assert.match(dbSrc, /赤ワイン/);
+assert.match(dbSrc, /焼酎/);
+assert.match(dbSrc, /日本酒/);
+assert.match(dbSrc, /チューハイ/);
 assert.match(dbSrc, /mode:\s*'per100ml'/);
 assert.match(dbSrc, /energy_kcal:\s*67/);
 assert.match(estSrc, /parseMlFromText/);
@@ -106,7 +110,37 @@ assert.ok(!/ミックス/.test(cashew.displayName));
 
 assert.equal(mod.parseMlFromText('牛乳２００ミリリットル'), 200);
 
+// アルコール類
+const wine = mod.estimateMealFromText('ワイン');
+assert.equal(wine.amountUnit, 'ml');
+assert.equal(wine.grams, 120);
+approx(wine.nutrients.energy_kcal, 87.6, 2); // 73*1.2
+
+const redWine = mod.estimateMealFromText('赤ワイン');
+assert.match(redWine.displayName, /赤ワイン/);
+approx(redWine.nutrients.energy_kcal, 87.6, 2);
+
+const wine150 = mod.estimateMealFromText('ワイン150ml');
+assert.equal(wine150.grams, 150);
+approx(wine150.nutrients.energy_kcal, 109.5, 2);
+
+const shochu = mod.estimateMealFromText('焼酎');
+assert.equal(shochu.grams, 60);
+approx(shochu.nutrients.energy_kcal, 87.6, 2); // 146*0.6
+
+const sake = mod.estimateMealFromText('日本酒');
+assert.equal(sake.grams, 180);
+approx(sake.nutrients.energy_kcal, 196.2, 3); // 109*1.8
+
+const chuhai = mod.estimateMealFromText('チューハイ');
+assert.equal(chuhai.grams, 350);
+approx(chuhai.nutrients.energy_kcal, 175, 3); // 50*3.5
+
+const whisky = mod.estimateMealFromText('ウイスキー');
+assert.equal(whisky.grams, 30);
+approx(whisky.nutrients.energy_kcal, 71.1, 2); // 237*0.3
+
 console.log('verify-meal-estimate: OK');
-console.log('  牛乳200ml:', milk.nutrients);
-console.log('  アーモンド25g:', almond.nutrients);
-console.log('  ミックスナッツ30g:', mixed.nutrients);
+console.log('  ワイン120ml:', wine.nutrients);
+console.log('  焼酎60ml:', shochu.nutrients);
+console.log('  日本酒180ml:', sake.nutrients);
