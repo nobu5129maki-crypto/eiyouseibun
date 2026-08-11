@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
+import { InstallAppPanel } from '../components/InstallAppPanel';
 import { formatTime, todayKey } from '../lib/date';
 import {
   ACTIVITY_LABELS,
@@ -33,6 +34,8 @@ export function SettingsPage() {
         </h1>
         <p className="muted">目標の再計算やデータの管理を行います。</p>
       </header>
+
+      <InstallAppPanel />
 
       <section className="card">
         <h2>カメラ設定</h2>
