@@ -175,18 +175,24 @@ export async function parseNutritionLabelImage(file: File): Promise<LabelOcrResu
     .filter(Boolean)
     .sort((a, b) => b.length - a.length)[0] || '';
 
-  const hasCore = coreHitCount(chosen) >= 2;
-  if (!hasCore) {
+  const hits = coreHitCount(chosen);
+  if (hits === 0 && !rawText.trim()) {
     throw new Error(
-      '栄養成分の数値を十分に読み取れませんでした。ラベル全体が明るく、文字がボケないように再撮影してください。',
+      '文字を読み取れませんでした。ラベル全体が明るく、文字がボケないように再撮影してください。',
     );
   }
 
+  // 数値が足りなくても結果画面へ進める（以前は throw して数値が一切出なかった）
+  const weak = hits < 2;
+  const noteExtra = weak
+    ? '数値の読み取りが不十分です。下の欄を手で直すか、再撮影してください。'
+    : '';
+
   return {
-    productName: '栄養成分表示（読取）',
-    servingLabel: chosen.servingLabel,
+    productName: weak ? '栄養成分表示（読取・要確認）' : '栄養成分表示（読取）',
+    servingLabel: [chosen.servingLabel, noteExtra].filter(Boolean).join(' / '),
     nutrients: chosen.nutrients,
     rawText,
-    confidence: chosen.confidence,
+    confidence: weak ? Math.min(chosen.confidence, 0.45) : chosen.confidence,
   };
 }

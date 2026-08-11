@@ -232,15 +232,31 @@ function extractByPatterns(text: string): {
   return { nutrients, matchedKeys };
 }
 
+function extractNumberFromLine(line: string): number | null {
+  const nums = [...line.matchAll(/(\d+(?:\.\d+)?)/g)].map((x) => x[1]);
+  if (!nums.length) return null;
+  let raw = nums[nums.length - 1];
+  if (
+    nums.length >= 2 &&
+    /^\d$/.test(nums[nums.length - 1]) &&
+    /^\d{1,3}$/.test(nums[nums.length - 2])
+  ) {
+    raw = `${nums[nums.length - 2]}.${nums[nums.length - 1]}`;
+  }
+  return pickNumber(raw);
+}
+
 function extractByLines(text: string, already: string[]): {
   nutrients: Partial<NutrientValues>;
   matchedKeys: string[];
 } {
   const nutrients: Partial<NutrientValues> = {};
   const matchedKeys: string[] = [];
-  const lines = text.split(/\n+/);
+  const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const next = lines[i + 1] ?? '';
     for (const pattern of PATTERNS) {
       if (already.includes(pattern.label) || matchedKeys.includes(pattern.label)) {
         continue;
@@ -250,19 +266,9 @@ function extractByLines(text: string, already: string[]): {
         (pattern.key === 'energy_kcal' && /エネルギー|kcal/i.test(line));
       if (!hitLabel) continue;
 
-      const nums = [...line.matchAll(/(\d+(?:\.\d+)?)/g)].map((x) => x[1]);
-      if (!nums.length) continue;
-
-      // 行末寄りの数値を優先。スペース区切り小数も試す
-      let raw = nums[nums.length - 1];
-      if (
-        nums.length >= 2 &&
-        /^\d$/.test(nums[nums.length - 1]) &&
-        /^\d{1,3}$/.test(nums[nums.length - 2])
-      ) {
-        raw = `${nums[nums.length - 2]}.${nums[nums.length - 1]}`;
-      }
-      let value = pickNumber(raw);
+      // 同一行、なければ次行（ラベルと数値が分かれるOCRレイアウト）
+      let value = extractNumberFromLine(line);
+      if (value == null && next) value = extractNumberFromLine(next);
       if (value == null) continue;
       value = recoverMissedDecimal(pattern.key, value);
       if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;

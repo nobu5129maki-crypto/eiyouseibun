@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CameraCapture } from '../components/CameraCapture';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
@@ -54,6 +54,7 @@ export function RecordPage() {
   const navigate = useNavigate();
   const { targets, addMeal } = useApp();
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const resultSectionRef = useRef<HTMLFormElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState('');
@@ -103,6 +104,22 @@ export function RecordPage() {
       return { ...n, pct };
     });
   }, [nutrients, targets]);
+
+  const ocrSummary = useMemo(() => {
+    if (inputMethod !== 'ocr_label' || !readyToEdit) return null;
+    return {
+      energy: nutrients.energy_kcal ?? 0,
+      protein: nutrients.protein_g ?? 0,
+      fat: nutrients.fat_g ?? 0,
+      carb: nutrients.carb_g ?? 0,
+      salt: nutrients.salt_g ?? 0,
+    };
+  }, [inputMethod, readyToEdit, nutrients]);
+
+  useEffect(() => {
+    if (!readyToEdit || inputMethod !== 'ocr_label') return;
+    resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [readyToEdit, inputMethod, nutrients.energy_kcal]);
 
   const setField = (key: keyof NutrientValues, value: string) => {
     const n = Number(value);
@@ -203,16 +220,33 @@ export function RecordPage() {
     setImagePreview(previewUrl);
     setLoading(true);
     setError('');
+    setReadyToEdit(false);
     try {
       const parsed = await parseNutritionLabelImage(file);
-      setDisplayName(parsed.productName);
-      setNutrients({ ...EMPTY, ...parsed.nutrients });
+      const nextNutrients = { ...EMPTY, ...parsed.nutrients };
+      setDisplayName(parsed.productName || '栄養成分表示（読取）');
+      setNutrients(nextNutrients);
       setConfidence(parsed.confidence);
       setMatched([]);
       setRawText(parsed.rawText);
       setNote(parsed.servingLabel);
       setInputMethod('ocr_label');
       setReadyToEdit(true);
+      const coreSum =
+        (nextNutrients.energy_kcal || 0) +
+        (nextNutrients.protein_g || 0) +
+        (nextNutrients.fat_g || 0) +
+        (nextNutrients.carb_g || 0) +
+        (nextNutrients.salt_g || 0);
+      if (coreSum <= 0) {
+        setError(
+          '数値を抽出できませんでした。OCR生テキストを確認し、下の欄へ手入力するか再撮影してください。',
+        );
+      } else if ((parsed.confidence ?? 0) < 0.55) {
+        setError('読み取り精度が低い可能性があります。数値を確認してください。');
+      } else {
+        setError('');
+      }
     } catch (err) {
       const message =
         err instanceof Error
@@ -220,6 +254,10 @@ export function RecordPage() {
           : '栄養成分表示の読み取りに失敗しました。もう一度お試しください。';
       setError(message);
       setReadyToEdit(false);
+      setNutrients({ ...EMPTY });
+      setConfidence(null);
+      setRawText('');
+      setNote('');
     } finally {
       setLoading(false);
     }
@@ -324,7 +362,7 @@ export function RecordPage() {
             「カメラで撮影」はタップ直後にカメラを起動します（画像フォルダは開きません）。
             Android のプライバシーでカメラONでも、Chrome
             でこのサイトのカメラ許可が別に必要です。Chrome アプリで開いてください。
-            MVP では OCR API の代わりにサンプル解析を返します。
+            撮影後、この画面の下にエネルギー・たんぱく質などの読み取り結果が表示されます。
           </p>
 
           <CameraPermissionPanel compact />
@@ -361,9 +399,14 @@ export function RecordPage() {
             }}
           />
           {loading && (
-            <p className="muted">
+            <p className="muted" data-testid="ocr-loading">
               栄養成分を読み取り中です（初回は日本語OCRデータの取得に少し時間がかかります）…
             </p>
+          )}
+          {error && mode === 'ocr' && (
+            <div className="alert danger" data-testid="ocr-error">
+              {error}
+            </div>
           )}
           {imagePreview && (
             <img
@@ -394,11 +437,44 @@ export function RecordPage() {
       )}
 
       {readyToEdit && (
-        <form className="card stack" onSubmit={onSubmit}>
+        <form
+          className="card stack"
+          onSubmit={onSubmit}
+          ref={resultSectionRef}
+          data-testid="record-confirm-form"
+        >
           <h2>記録内容（確認・編集）</h2>
           <p className="muted" style={{ fontSize: '0.85rem' }}>
             数値が違う場合は手で直すか、破棄して再撮影してください。
           </p>
+
+          {ocrSummary && (
+            <div className="ocr-result-summary" data-testid="ocr-result-summary">
+              <strong>読み取り結果</strong>
+              <div className="ocr-result-energy" data-testid="ocr-energy">
+                {Math.round(ocrSummary.energy * 10) / 10}
+                <span>kcal</span>
+              </div>
+              <div className="ocr-result-grid">
+                <div data-testid="ocr-protein">
+                  タンパク質
+                  <b>{Math.round(ocrSummary.protein * 10) / 10}g</b>
+                </div>
+                <div data-testid="ocr-fat">
+                  脂質
+                  <b>{Math.round(ocrSummary.fat * 10) / 10}g</b>
+                </div>
+                <div data-testid="ocr-carb">
+                  炭水化物
+                  <b>{Math.round(ocrSummary.carb * 10) / 10}g</b>
+                </div>
+                <div data-testid="ocr-salt">
+                  食塩相当量
+                  <b>{Math.round(ocrSummary.salt * 10) / 10}g</b>
+                </div>
+              </div>
+            </div>
+          )}
 
           {(mode === 'ocr' || inputMethod === 'ocr_label') && (
             <div className="row">
