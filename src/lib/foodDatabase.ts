@@ -15,7 +15,14 @@ export type FoodEntry = {
   defaultGrams: number;
   source: string;
   weight: number;
+  /** アルコール量 g / 100g or 100ml（エネルギー説明用） */
+  alcohol_g?: number;
 };
+
+/** PFCだけでは説明できないアルコール由来エネルギーがあるか */
+export function hasAlcoholEnergy(food: FoodEntry): boolean {
+  return (food.alcohol_g ?? 0) > 0.2;
+}
 
 export function amountUnitOf(food: FoodEntry): AmountUnit {
   return food.mode === 'per100ml' ? 'ml' : 'g';
@@ -1408,6 +1415,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 350,
     source: '日本食品標準成分表 ビール/淡色',
     weight: 5,
+    alcohol_g: 3.5,
   },
   {
     id: 'happoshu',
@@ -1428,6 +1436,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 350,
     source: '市販発泡酒の代表値（100mlあたり）',
     weight: 5,
+    alcohol_g: 4.0,
   },
   {
     id: 'non_alcohol_beer',
@@ -1468,6 +1477,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 120,
     source: '日本食品標準成分表 赤ワイン',
     weight: 6,
+    alcohol_g: 9.3,
   },
   {
     id: 'white_wine',
@@ -1488,6 +1498,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 120,
     source: '日本食品標準成分表 白ワイン',
     weight: 6,
+    alcohol_g: 9.1,
   },
   {
     id: 'wine',
@@ -1508,6 +1519,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 120,
     source: '日本食品標準成分表 ワイン（赤白平均）',
     weight: 4,
+    alcohol_g: 9.2,
   },
   {
     id: 'sparkling_wine',
@@ -1528,6 +1540,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 120,
     source: 'スパークリングワインの代表値（100mlあたり）',
     weight: 6,
+    alcohol_g: 9.0,
   },
   {
     id: 'sake',
@@ -1548,6 +1561,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 180,
     source: '日本食品標準成分表 清酒/普通酒',
     weight: 5,
+    alcohol_g: 12.0,
   },
   {
     id: 'shochu',
@@ -1568,6 +1582,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 60,
     source: '日本食品標準成分表 焼酎/連続式・単式（25度相当）',
     weight: 5,
+    alcohol_g: 20.0,
   },
   {
     id: 'whisky',
@@ -1588,6 +1603,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '日本食品標準成分表 ウイスキー',
     weight: 5,
+    alcohol_g: 32.0,
   },
   {
     id: 'brandy',
@@ -1608,6 +1624,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '日本食品標準成分表 ブランデー',
     weight: 5,
+    alcohol_g: 32.0,
   },
   {
     id: 'vodka',
@@ -1628,6 +1645,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '蒸留酒の代表値（40度・100mlあたり）',
     weight: 5,
+    alcohol_g: 32.0,
   },
   {
     id: 'gin',
@@ -1648,6 +1666,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '蒸留酒の代表値（40度・100mlあたり）',
     weight: 5,
+    alcohol_g: 32.0,
   },
   {
     id: 'rum',
@@ -1668,6 +1687,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '蒸留酒の代表値（40度・100mlあたり）',
     weight: 5,
+    alcohol_g: 32.0,
   },
   {
     id: 'umeshu',
@@ -1688,6 +1708,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 60,
     source: '日本食品標準成分表 梅酒',
     weight: 5,
+    alcohol_g: 10.0,
   },
   {
     id: 'chuhai',
@@ -1708,17 +1729,62 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 350,
     source: '市販チューハイの代表値（100mlあたり）',
     weight: 5,
+    alcohol_g: 4.0,
+  },
+  {
+    id: 'ginger_highball',
+    keywords: ['ジンジャーハイボール', 'ジンジャハイボール', 'ジンジャー割り'],
+    name: 'ジンジャーハイボール',
+    nutrients: {
+      energy_kcal: 48,
+      protein_g: 0,
+      fat_g: 0,
+      carb_g: 5.5,
+      salt_g: 0.05,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 350,
+    source: 'ウイスキー＋ジンジャーエール割り代表値（100mlあたり）',
+    weight: 7,
+    alcohol_g: 4.5,
+  },
+  {
+    id: 'cola_highball',
+    keywords: ['コーラハイボール', 'コークハイボール', 'コーラ割り'],
+    name: 'コーラハイボール',
+    nutrients: {
+      energy_kcal: 52,
+      protein_g: 0,
+      fat_g: 0,
+      carb_g: 6.5,
+      salt_g: 0.05,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 350,
+    source: 'ウイスキー＋コーラ割り代表値（100mlあたり）',
+    weight: 7,
+    alcohol_g: 4.5,
   },
   {
     id: 'highball',
-    keywords: ['ハイボール'],
-    name: 'ハイボール',
+    keywords: ['ソーダハイボール', 'ウイスキーハイボール', 'ハイボール'],
+    name: 'ハイボール（ソーダ割り）',
     nutrients: {
+      // ソーダ割は糖がほぼ無い。エネルギーはアルコール由来。
+      // 炭水化物は成分表示で0と出ることが多いが、割材の微量糖として代表値を置く。
       energy_kcal: 34,
       protein_g: 0,
       fat_g: 0,
-      carb_g: 0,
-      salt_g: 0.0,
+      carb_g: 0.3,
+      salt_g: 0.02,
       fiber_g: 0,
       vitamin_c_mg: 0,
       calcium_mg: 1,
@@ -1726,8 +1792,9 @@ export const FOOD_DATABASE: FoodEntry[] = [
     },
     mode: 'per100ml',
     defaultGrams: 350,
-    source: 'ウイスキーハイボールの代表値（100mlあたり）',
+    source: 'ウイスキー＋炭酸水ハイボール代表値（100mlあたり）',
     weight: 5,
+    alcohol_g: 4.8,
   },
   {
     id: 'makgeolli',
@@ -1748,6 +1815,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 200,
     source: 'マッコリの代表値（100mlあたり）',
     weight: 5,
+    alcohol_g: 3.5,
   },
   {
     id: 'cider_alcohol',
@@ -1768,6 +1836,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 200,
     source: 'シードルの代表値（100mlあたり）',
     weight: 5,
+    alcohol_g: 3.5,
   },
   {
     id: 'liqueur',
@@ -1788,6 +1857,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 30,
     source: '甘味リキュールの代表値（100mlあたり）',
     weight: 4,
+    alcohol_g: 15.0,
   },
   {
     id: 'cocktail',
@@ -1808,6 +1878,7 @@ export const FOOD_DATABASE: FoodEntry[] = [
     defaultGrams: 200,
     source: '一般的なカクテル1杯の代表値（100mlあたり）',
     weight: 4,
+    alcohol_g: 6.0,
   },
 
   // —— 料理（1食分の概算）——

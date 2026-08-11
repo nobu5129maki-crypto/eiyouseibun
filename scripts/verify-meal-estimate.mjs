@@ -140,7 +140,21 @@ const whisky = mod.estimateMealFromText('ウイスキー');
 assert.equal(whisky.grams, 30);
 approx(whisky.nutrients.energy_kcal, 71.1, 2); // 237*0.3
 
+const highball = mod.estimateMealFromText('ハイボール');
+assert.equal(highball.amountUnit, 'ml');
+assert.equal(highball.grams, 350);
+assert.ok(
+  (highball.nutrients.carb_g ?? 0) > 0,
+  `highball carb must be > 0, got ${highball.nutrients.carb_g}`,
+);
+approx(highball.nutrients.energy_kcal, 119, 3); // 34*3.5
+approx(highball.nutrients.carb_g, 1.1, 0.3); // 0.3*3.5
+assert.match(highball.note, /アルコール/);
+
+const gingerHb = mod.estimateMealFromText('ジンジャーハイボール');
+assert.ok((gingerHb.nutrients.carb_g ?? 0) >= 15);
+
 console.log('verify-meal-estimate: OK');
 console.log('  ワイン120ml:', wine.nutrients);
-console.log('  焼酎60ml:', shochu.nutrients);
+console.log('  ハイボール350ml:', highball.nutrients);
 console.log('  日本酒180ml:', sake.nutrients);

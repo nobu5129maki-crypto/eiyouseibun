@@ -2,6 +2,7 @@ import {
   FOOD_DATABASE,
   amountUnitOf,
   emptyNutrients,
+  hasAlcoholEnergy,
   isScalableFood,
   type AmountUnit,
   type FoodEntry,
@@ -171,6 +172,23 @@ function unitLabel(unit: AmountUnit): string {
   return unit === 'ml' ? 'ml' : 'g';
 }
 
+function alcoholNote(food: FoodEntry, amount: number): string {
+  if (!hasAlcoholEnergy(food) || !food.alcohol_g) return '';
+  const alcohol = Math.round(food.alcohol_g * (amount / 100) * 10) / 10;
+  const carb = food.nutrients.carb_g ?? 0;
+  if (carb < 0.5) {
+    return `エネルギーは主にアルコール（約${alcohol}g）由来です。炭水化物はほぼ含まれません。`;
+  }
+  return `アルコール約${alcohol}gを含みます（エネルギーの一部はアルコール由来）。`;
+}
+
+function buildScaleNote(food: FoodEntry, amount: number, unit: AmountUnit): string {
+  const u = unitLabel(unit);
+  const base = `${food.source}の100${u}あたりを${amount}${u}に換算しました。分量を変えると再計算できます。`;
+  const extra = alcoholNote(food, amount);
+  return extra ? `${base} ${extra}` : base;
+}
+
 function emptyEstimate(note: string, displayName = ''): MealEstimate {
   return {
     displayName,
@@ -221,7 +239,7 @@ export function estimateMealFromText(
       nutrients,
       confidence: 0.85,
       matchedKeywords: [matches[0].keyword],
-      note: `${food.source}の100${u}あたりを${amount}${u}に換算しました。分量を変えると再計算できます。`,
+      note: buildScaleNote(food, amount, unit),
       supportsGrams: true,
       grams: amount,
       amountUnit: unit,
