@@ -231,6 +231,43 @@ assert.match(matchaLatte.displayName, /抹茶ラテ/);
 const starbucks = mod.estimateMealFromText('スタバ');
 assert.match(starbucks.displayName, /スタバ/);
 
+// 日本食の網羅
+const washokuCases = [
+  ['すし', /寿司/],
+  ['お寿司', /寿司/],
+  ['ちらし寿司', /ちらし/],
+  ['ラーメン', /ラーメン/],
+  ['豚骨ラーメン', /豚骨/],
+  ['味噌ラーメン', /味噌/],
+  ['つけ麺', /つけ麺/],
+  ['天ぷら', /天ぷら/],
+  ['てんぷら', /天ぷら/],
+  ['刺身', /刺身/],
+  ['焼き鳥', /焼き鳥/],
+  ['すき焼き', /すき焼き/],
+  ['おでん', /おでん/],
+  ['生姜焼き', /生姜焼き/],
+  ['たこ焼き', /たこ焼き/],
+  ['ざるそば', /ざるそば/],
+  ['肉うどん', /肉うどん/],
+  ['チキン南蛮', /チキン南蛮/],
+  ['卵かけご飯', /卵かけ/],
+];
+for (const [input, re] of washokuCases) {
+  const r = mod.estimateMealFromText(input);
+  assert.match(r.displayName, re, `washoku: ${input} -> ${r.displayName}`);
+  assert.ok(r.nutrients.energy_kcal > 0, `kcal for ${input}`);
+  assert.ok(r.confidence > 0, `confidence for ${input}`);
+}
+
+const tonkotsu = mod.estimateMealFromText('豚骨ラーメン');
+assert.ok(!/^ラーメン$/.test(tonkotsu.displayName));
+assert.equal(tonkotsu.matchedKeywords.length, 1);
+
+const tempuraOnly = mod.estimateMealFromText('天ぷら');
+assert.match(tempuraOnly.displayName, /天ぷら/);
+assert.ok(!/そば/.test(tempuraOnly.displayName));
+
 console.log('verify-meal-estimate: OK');
 console.log('  かつ丼:', mod.estimateMealFromText('かつ丼').nutrients);
 console.log('  ビッグマック:', bigmac.nutrients);
