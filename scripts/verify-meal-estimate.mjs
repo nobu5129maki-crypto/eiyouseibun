@@ -30,6 +30,9 @@ const pageSrc = fs.readFileSync(path.join(root, 'src/pages/RecordPage.tsx'), 'ut
 
 assert.match(dbSrc, /keywords:\s*\['ブロッコリー'/);
 assert.match(dbSrc, /牛乳/);
+assert.match(dbSrc, /アーモンド/);
+assert.match(dbSrc, /ミックスナッツ/);
+assert.match(dbSrc, /くるみ/);
 assert.match(dbSrc, /mode:\s*'per100ml'/);
 assert.match(dbSrc, /energy_kcal:\s*67/);
 assert.match(estSrc, /parseMlFromText/);
@@ -75,9 +78,35 @@ const broccoli = mod.estimateMealFromText('ブロッコリー');
 assert.equal(broccoli.amountUnit, 'g');
 approx(broccoli.nutrients.energy_kcal, 33, 0.5);
 
+// ナッツ類（既定25g）: アーモンド 578kcal/100g → 約144.5
+const almond = mod.estimateMealFromText('アーモンド');
+assert.equal(almond.supportsGrams, true);
+assert.equal(almond.amountUnit, 'g');
+assert.equal(almond.grams, 25);
+approx(almond.nutrients.energy_kcal, 144.5, 2);
+approx(almond.nutrients.protein_g, 5.3, 0.3);
+approx(almond.nutrients.fat_g, 13.5, 0.4);
+
+const almond40 = mod.estimateMealFromText('アーモンド40g');
+assert.equal(almond40.grams, 40);
+approx(almond40.nutrients.energy_kcal, 231.2, 2);
+
+const mixed = mod.estimateMealFromText('ミックスナッツ');
+assert.equal(mixed.grams, 30);
+approx(mixed.nutrients.energy_kcal, 183, 3);
+
+const walnut = mod.estimateMealFromText('くるみ');
+assert.ok(walnut.nutrients.energy_kcal > 100);
+assert.ok(walnut.matchedKeywords.some((k) => /くるみ|クルミ/.test(k)));
+
+// 具体名が汎用「ナッツ」より優先
+const cashew = mod.estimateMealFromText('カシューナッツ');
+assert.match(cashew.displayName, /カシュー/);
+assert.ok(!/ミックス/.test(cashew.displayName));
+
 assert.equal(mod.parseMlFromText('牛乳２００ミリリットル'), 200);
 
 console.log('verify-meal-estimate: OK');
 console.log('  牛乳200ml:', milk.nutrients);
-console.log('  牛乳150ml:', milk150.nutrients);
-console.log('  低脂肪牛乳200ml:', lowfat.nutrients);
+console.log('  アーモンド25g:', almond.nutrients);
+console.log('  ミックスナッツ30g:', mixed.nutrients);
