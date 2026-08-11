@@ -1,13 +1,11 @@
 /**
- * 食事テキスト推測の回帰テスト
- * - ソース上のブロッコリー成分が正しいこと
- * - グラム換算が想定どおりであること
- * - 旧フォールバック（~550kcal / P20 / F18）に戻っていないこと
+ * 食事テキスト推測の回帰テスト（野菜g・飲料ml）
  */
 import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -30,45 +28,56 @@ const dbSrc = fs.readFileSync(path.join(root, 'src/lib/foodDatabase.ts'), 'utf8'
 const estSrc = fs.readFileSync(path.join(root, 'src/lib/mealEstimate.ts'), 'utf8');
 const pageSrc = fs.readFileSync(path.join(root, 'src/pages/RecordPage.tsx'), 'utf8');
 
-// ブロッコリー（生）100g: 33 / 4.3 / 0.5
 assert.match(dbSrc, /keywords:\s*\['ブロッコリー'/);
-assert.match(dbSrc, /energy_kcal:\s*33/);
-assert.match(dbSrc, /protein_g:\s*4\.3/);
-assert.match(dbSrc, /fat_g:\s*0\.5/);
-assert.match(dbSrc, /mode:\s*'per100g'/);
+assert.match(dbSrc, /牛乳/);
+assert.match(dbSrc, /mode:\s*'per100ml'/);
+assert.match(dbSrc, /energy_kcal:\s*67/);
+assert.match(estSrc, /parseMlFromText/);
+assert.match(estSrc, /amountUnitOf/);
+assert.match(estSrc, /isScalableFood/);
+assert.match(pageSrc, /分量（ミリリットル）/);
+assert.match(pageSrc, /amountUnit/);
 
-// 旧フォールバックを廃止
-assert.doesNotMatch(estSrc, /energy_kcal:\s*550/);
-assert.match(estSrc, /supportsGrams/);
-assert.match(estSrc, /parseGramsFromText/);
-assert.match(estSrc, /nutrientsForGrams/);
+const milk100 = { energy_kcal: 67, protein_g: 3.3, fat_g: 3.8, carb_g: 4.8 };
+const m200 = scaleNutrients(milk100, 2);
+approx(m200.energy_kcal, 134);
+approx(m200.protein_g, 6.6);
 
-// UI にグラム入力
-assert.match(pageSrc, /grams-input/);
-assert.match(pageSrc, /分量（グラム）/);
-assert.match(pageSrc, /onGramsChange/);
+const out = path.join(root, 'scripts', '.tmp-mealEstimate.mjs');
+execSync(
+  'npx --yes esbuild src/lib/mealEstimate.ts --bundle --platform=node --format=esm --outfile=scripts/.tmp-mealEstimate.mjs',
+  { cwd: root, stdio: 'pipe' },
+);
+const mod = await import(pathToFileURL(out).href + `?t=${Date.now()}`);
+fs.unlinkSync(out);
 
-const broccoli100 = {
-  energy_kcal: 33,
-  protein_g: 4.3,
-  fat_g: 0.5,
-  carb_g: 6.6,
-};
+const milk = mod.estimateMealFromText('牛乳');
+assert.equal(milk.supportsGrams, true);
+assert.equal(milk.amountUnit, 'ml');
+assert.equal(milk.grams, 200);
+approx(milk.nutrients.energy_kcal, 134, 1);
+approx(milk.nutrients.protein_g, 6.6, 0.2);
+approx(milk.nutrients.calcium_mg, 220, 1);
 
-const g100 = scaleNutrients(broccoli100, 1);
-approx(g100.energy_kcal, 33);
-approx(g100.protein_g, 4.3);
-approx(g100.fat_g, 0.5);
+const milk150 = mod.estimateMealFromText('牛乳150ml');
+assert.equal(milk150.grams, 150);
+approx(milk150.nutrients.energy_kcal, 100.5, 1);
 
-const g150 = scaleNutrients(broccoli100, 1.5);
-approx(g150.energy_kcal, 49.5);
-approx(g150.protein_g, 6.5);
-approx(g150.fat_g, 0.8);
+const lowfat = mod.estimateMealFromText('低脂肪牛乳');
+approx(lowfat.nutrients.energy_kcal, 92, 1);
+assert.ok(lowfat.nutrients.energy_kcal < milk.nutrients.energy_kcal);
 
-assert.ok(g100.energy_kcal < 100, 'must not resemble 500kcal meal fallback');
-assert.ok(g100.protein_g < 10, 'must not resemble 20g protein fallback');
-assert.ok(g100.fat_g < 2, 'must not resemble 18g fat fallback');
+const soy = mod.estimateMealFromText('豆乳200ml');
+assert.equal(soy.grams, 200);
+approx(soy.nutrients.energy_kcal, 92, 1);
+
+const broccoli = mod.estimateMealFromText('ブロッコリー');
+assert.equal(broccoli.amountUnit, 'g');
+approx(broccoli.nutrients.energy_kcal, 33, 0.5);
+
+assert.equal(mod.parseMlFromText('牛乳２００ミリリットル'), 200);
 
 console.log('verify-meal-estimate: OK');
-console.log('  ブロッコリー100g相当:', g100);
-console.log('  ブロッコリー150g相当:', g150);
+console.log('  牛乳200ml:', milk.nutrients);
+console.log('  牛乳150ml:', milk150.nutrients);
+console.log('  低脂肪牛乳200ml:', lowfat.nutrients);

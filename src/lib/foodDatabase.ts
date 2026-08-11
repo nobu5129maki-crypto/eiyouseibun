@@ -1,20 +1,29 @@
 import type { NutrientValues } from '../types';
 
-export type FoodUnitMode = 'per100g' | 'serving';
+export type FoodUnitMode = 'per100g' | 'per100ml' | 'serving';
+export type AmountUnit = 'g' | 'ml';
 
 export type FoodEntry = {
   id: string;
   /** マッチ用（長い語を優先するため長い順に登録する） */
   keywords: string[];
   name: string;
-  /** 日本食品標準成分表ベースの概算値 */
+  /** 日本食品標準成分表ベースの概算値（100g または 100ml あたり） */
   nutrients: NutrientValues;
   mode: FoodUnitMode;
-  /** per100g のときの標準分量、serving のときは1食分 */
+  /** per100g/ml のときの標準分量、serving のときは1食分 */
   defaultGrams: number;
   source: string;
   weight: number;
 };
+
+export function amountUnitOf(food: FoodEntry): AmountUnit {
+  return food.mode === 'per100ml' ? 'ml' : 'g';
+}
+
+export function isScalableFood(food: FoodEntry): boolean {
+  return food.mode === 'per100g' || food.mode === 'per100ml';
+}
 
 const EMPTY: NutrientValues = {
   energy_kcal: 0,
@@ -409,6 +418,268 @@ export const FOOD_DATABASE: FoodEntry[] = [
     mode: 'per100g',
     defaultGrams: 100,
     source: '市販サラダチキンの代表値（100gあたり）',
+    weight: 5,
+  },
+
+  // —— 飲料（100ml換算。成分表の100g値を密度≈1として利用）——
+  {
+    id: 'milk_whole',
+    keywords: ['普通牛乳', '成分無調整牛乳', '牛乳', 'ミルク'],
+    name: '普通牛乳',
+    nutrients: {
+      energy_kcal: 67,
+      protein_g: 3.3,
+      fat_g: 3.8,
+      carb_g: 4.8,
+      salt_g: 0.1,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 110,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 普通牛乳（100g≈100ml）',
+    weight: 5,
+  },
+  {
+    id: 'milk_lowfat',
+    keywords: ['低脂肪牛乳', '低脂肪ミルク', '低脂肪乳'],
+    name: '低脂肪牛乳',
+    nutrients: {
+      energy_kcal: 46,
+      protein_g: 3.8,
+      fat_g: 1.0,
+      carb_g: 5.5,
+      salt_g: 0.1,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 130,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 低脂肪牛乳',
+    weight: 6,
+  },
+  {
+    id: 'milk_skim',
+    keywords: ['無脂肪牛乳', 'スキムミルク', '脱脂乳'],
+    name: '無脂肪牛乳',
+    nutrients: {
+      energy_kcal: 33,
+      protein_g: 3.4,
+      fat_g: 0.1,
+      carb_g: 4.7,
+      salt_g: 0.1,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 120,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 無脂肪牛乳',
+    weight: 6,
+  },
+  {
+    id: 'soy_milk',
+    keywords: ['無調整豆乳', '豆乳'],
+    name: '豆乳（無調整）',
+    nutrients: {
+      energy_kcal: 46,
+      protein_g: 3.6,
+      fat_g: 2.0,
+      carb_g: 3.1,
+      salt_g: 0.0,
+      fiber_g: 0.2,
+      vitamin_c_mg: 0,
+      calcium_mg: 15,
+      iron_mg: 1.2,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 豆乳/無調整',
+    weight: 5,
+  },
+  {
+    id: 'soy_milk_prepared',
+    keywords: ['調製豆乳'],
+    name: '調製豆乳',
+    nutrients: {
+      energy_kcal: 64,
+      protein_g: 3.2,
+      fat_g: 3.6,
+      carb_g: 4.8,
+      salt_g: 0.1,
+      fiber_g: 0.2,
+      vitamin_c_mg: 0,
+      calcium_mg: 64,
+      iron_mg: 1.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 調製豆乳',
+    weight: 6,
+  },
+  {
+    id: 'orange_juice',
+    keywords: ['オレンジジュース', 'オレンジ果汁', 'みかんジュース'],
+    name: 'オレンジジュース',
+    nutrients: {
+      energy_kcal: 42,
+      protein_g: 0.7,
+      fat_g: 0.1,
+      carb_g: 10.7,
+      salt_g: 0.0,
+      fiber_g: 0.3,
+      vitamin_c_mg: 42,
+      calcium_mg: 9,
+      iron_mg: 0.2,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 オレンジ果汁',
+    weight: 5,
+  },
+  {
+    id: 'apple_juice',
+    keywords: ['りんごジュース', 'アップルジュース', 'リンゴジュース'],
+    name: 'りんごジュース',
+    nutrients: {
+      energy_kcal: 47,
+      protein_g: 0.1,
+      fat_g: 0.1,
+      carb_g: 11.8,
+      salt_g: 0.0,
+      fiber_g: 0.2,
+      vitamin_c_mg: 0,
+      calcium_mg: 5,
+      iron_mg: 0.1,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 りんご果汁',
+    weight: 5,
+  },
+  {
+    id: 'vegetable_juice',
+    keywords: ['野菜ジュース', '野菜汁'],
+    name: '野菜ジュース',
+    nutrients: {
+      energy_kcal: 20,
+      protein_g: 0.7,
+      fat_g: 0.1,
+      carb_g: 4.6,
+      salt_g: 0.3,
+      fiber_g: 0.8,
+      vitamin_c_mg: 20,
+      calcium_mg: 15,
+      iron_mg: 0.3,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '市販野菜ジュースの代表値（100mlあたり）',
+    weight: 5,
+  },
+  {
+    id: 'coffee_black',
+    keywords: ['ブラックコーヒー', 'コーヒー'],
+    name: 'コーヒー（浸出液）',
+    nutrients: {
+      energy_kcal: 4,
+      protein_g: 0.2,
+      fat_g: 0,
+      carb_g: 0.7,
+      salt_g: 0.0,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 150,
+    source: '日本食品標準成分表 コーヒー/浸出液',
+    weight: 4,
+  },
+  {
+    id: 'green_tea',
+    keywords: ['緑茶', '日本茶', 'お茶'],
+    name: '緑茶（浸出液）',
+    nutrients: {
+      energy_kcal: 0,
+      protein_g: 0,
+      fat_g: 0,
+      carb_g: 0,
+      salt_g: 0.0,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 1,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 200,
+    source: '日本食品標準成分表 せん茶/浸出液',
+    weight: 4,
+  },
+  {
+    id: 'cola',
+    keywords: ['コーラ', 'cola'],
+    name: 'コーラ',
+    nutrients: {
+      energy_kcal: 46,
+      protein_g: 0,
+      fat_g: 0,
+      carb_g: 11.4,
+      salt_g: 0.02,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 350,
+    source: '市販炭酸飲料の代表値（100mlあたり）',
+    weight: 5,
+  },
+  {
+    id: 'sports_drink',
+    keywords: ['スポーツドリンク', 'ポカリスエット', 'アクエリアス', 'イオン飲料'],
+    name: 'スポーツドリンク',
+    nutrients: {
+      energy_kcal: 25,
+      protein_g: 0,
+      fat_g: 0,
+      carb_g: 6.2,
+      salt_g: 0.12,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 500,
+    source: '市販スポーツドリンクの代表値（100mlあたり）',
+    weight: 5,
+  },
+  {
+    id: 'beer',
+    keywords: ['ビール'],
+    name: 'ビール',
+    nutrients: {
+      energy_kcal: 40,
+      protein_g: 0.3,
+      fat_g: 0,
+      carb_g: 3.1,
+      salt_g: 0.0,
+      fiber_g: 0,
+      vitamin_c_mg: 0,
+      calcium_mg: 2,
+      iron_mg: 0.0,
+    },
+    mode: 'per100ml',
+    defaultGrams: 350,
+    source: '日本食品標準成分表 ビール/淡色',
     weight: 5,
   },
 
