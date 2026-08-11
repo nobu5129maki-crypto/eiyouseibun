@@ -293,6 +293,50 @@ a {
   font-weight: 700;
 }
 
+.history-chart {
+  display: grid;
+  gap: 6px;
+}
+
+.history-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: linear-gradient(180deg, #f7fbf8 0%, #ffffff 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.history-bar {
+  fill: var(--accent);
+  opacity: 0.9;
+}
+
+.history-bar.over {
+  fill: var(--danger);
+}
+
+.history-chart-target {
+  stroke: var(--warning);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.history-chart-target-label {
+  fill: var(--warning);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.history-chart-xlabel {
+  fill: var(--ink-muted);
+  font-size: 8px;
+}
+
+.history-chart-legend {
+  font-size: 0.75rem;
+}
+
 .loading {
   min-height: 100vh;
   display: grid;
