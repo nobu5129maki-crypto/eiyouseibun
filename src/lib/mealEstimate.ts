@@ -1,3 +1,8 @@
+import {
+  FOOD_DATABASE,
+  emptyNutrients,
+  type FoodEntry,
+} from './foodDatabase';
 import type { NutrientValues } from '../types';
 
 export type MealEstimate = {
@@ -6,350 +11,24 @@ export type MealEstimate = {
   confidence: number;
   matchedKeywords: string[];
   note: string;
+  /** グラム換算できる単一食品のとき true */
+  supportsGrams: boolean;
+  /** 適用したグラム数（per100g のとき） */
+  grams: number | null;
+  /** 100gあたりの基準値（グラム再計算用） */
+  per100g: NutrientValues | null;
+  source: string;
 };
-
-type FoodPattern = {
-  keywords: string[];
-  name: string;
-  nutrients: NutrientValues;
-  weight: number;
-};
-
-/** よくある食事のキーワード辞書（1食あたりの概算） */
-const FOOD_PATTERNS: FoodPattern[] = [
-  {
-    keywords: ['親子丼', 'おやこどん'],
-    name: '親子丼',
-    nutrients: {
-      energy_kcal: 720,
-      protein_g: 32,
-      fat_g: 22,
-      carb_g: 95,
-      salt_g: 3.8,
-      fiber_g: 2.5,
-      iron_mg: 2.1,
-      vitamin_c_mg: 4,
-      calcium_mg: 40,
-    },
-    weight: 3,
-  },
-  {
-    keywords: ['牛丼', 'ぎゅうどん'],
-    name: '牛丼',
-    nutrients: {
-      energy_kcal: 680,
-      protein_g: 28,
-      fat_g: 24,
-      carb_g: 90,
-      salt_g: 3.5,
-      fiber_g: 2,
-      iron_mg: 3.2,
-      calcium_mg: 30,
-      vitamin_c_mg: 2,
-    },
-    weight: 3,
-  },
-  {
-    keywords: ['ラーメン', 'らーめん', '拉麺'],
-    name: 'ラーメン',
-    nutrients: {
-      energy_kcal: 650,
-      protein_g: 24,
-      fat_g: 28,
-      carb_g: 78,
-      salt_g: 6.5,
-      fiber_g: 3,
-      vitamin_c_mg: 2,
-      calcium_mg: 50,
-      iron_mg: 1.5,
-    },
-    weight: 3,
-  },
-  {
-    keywords: ['うどん'],
-    name: 'うどん',
-    nutrients: {
-      energy_kcal: 420,
-      protein_g: 14,
-      fat_g: 6,
-      carb_g: 78,
-      salt_g: 4.2,
-      fiber_g: 2.5,
-      calcium_mg: 35,
-      iron_mg: 1.2,
-      vitamin_c_mg: 1,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['そば', '蕎麦'],
-    name: 'そば',
-    nutrients: {
-      energy_kcal: 400,
-      protein_g: 16,
-      fat_g: 5,
-      carb_g: 72,
-      salt_g: 3.8,
-      fiber_g: 4,
-      iron_mg: 2.4,
-      calcium_mg: 40,
-      vitamin_c_mg: 1,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['カレー', 'かれー'],
-    name: 'カレーライス',
-    nutrients: {
-      energy_kcal: 750,
-      protein_g: 22,
-      fat_g: 26,
-      carb_g: 108,
-      salt_g: 3.6,
-      fiber_g: 5,
-      vitamin_c_mg: 12,
-      iron_mg: 2.5,
-      calcium_mg: 55,
-    },
-    weight: 3,
-  },
-  {
-    keywords: ['サラダチキン', 'ささみ'],
-    name: 'サラダチキン',
-    nutrients: {
-      energy_kcal: 120,
-      protein_g: 25,
-      fat_g: 1.5,
-      carb_g: 1,
-      salt_g: 1.6,
-      fiber_g: 0,
-      iron_mg: 0.5,
-      calcium_mg: 10,
-      vitamin_c_mg: 0,
-    },
-    weight: 3,
-  },
-  {
-    keywords: ['鶏胸', 'むね肉', 'チキン'],
-    name: '鶏肉料理',
-    nutrients: {
-      energy_kcal: 280,
-      protein_g: 35,
-      fat_g: 8,
-      carb_g: 10,
-      salt_g: 1.8,
-      fiber_g: 0.5,
-      iron_mg: 0.8,
-      calcium_mg: 15,
-      vitamin_c_mg: 2,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['卵', 'たまご', '玉子'],
-    name: '卵料理',
-    nutrients: {
-      energy_kcal: 150,
-      protein_g: 12,
-      fat_g: 10,
-      carb_g: 1,
-      salt_g: 0.4,
-      fiber_g: 0,
-      iron_mg: 1.8,
-      calcium_mg: 50,
-      vitamin_c_mg: 0,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['ヨーグルト'],
-    name: 'ヨーグルト',
-    nutrients: {
-      energy_kcal: 70,
-      protein_g: 4.5,
-      fat_g: 3,
-      carb_g: 5.5,
-      salt_g: 0.1,
-      fiber_g: 0,
-      calcium_mg: 120,
-      vitamin_c_mg: 0,
-      iron_mg: 0.1,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['納豆'],
-    name: '納豆',
-    nutrients: {
-      energy_kcal: 100,
-      protein_g: 8,
-      fat_g: 5,
-      carb_g: 6,
-      salt_g: 0.9,
-      fiber_g: 3.3,
-      iron_mg: 1.5,
-      calcium_mg: 45,
-      vitamin_c_mg: 0,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['サラダ', '野菜'],
-    name: 'サラダ',
-    nutrients: {
-      energy_kcal: 120,
-      protein_g: 3,
-      fat_g: 6,
-      carb_g: 12,
-      salt_g: 0.8,
-      fiber_g: 4,
-      vitamin_c_mg: 40,
-      calcium_mg: 40,
-      iron_mg: 1,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['ご飯', 'ごはん', '白米', 'ライス'],
-    name: 'ご飯（茶碗1杯）',
-    nutrients: {
-      energy_kcal: 250,
-      protein_g: 4,
-      fat_g: 0.5,
-      carb_g: 55,
-      salt_g: 0,
-      fiber_g: 0.5,
-      calcium_mg: 5,
-      iron_mg: 0.2,
-      vitamin_c_mg: 0,
-    },
-    weight: 1,
-  },
-  {
-    keywords: ['パン', 'トースト', '食パン'],
-    name: 'パン',
-    nutrients: {
-      energy_kcal: 260,
-      protein_g: 8,
-      fat_g: 4,
-      carb_g: 48,
-      salt_g: 1.1,
-      fiber_g: 2,
-      calcium_mg: 30,
-      iron_mg: 0.8,
-      vitamin_c_mg: 0,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['魚', '焼き魚', 'さば', '鮭', 'サーモン'],
-    name: '魚料理',
-    nutrients: {
-      energy_kcal: 250,
-      protein_g: 28,
-      fat_g: 14,
-      carb_g: 1,
-      salt_g: 1.5,
-      fiber_g: 0,
-      iron_mg: 1.2,
-      calcium_mg: 40,
-      vitamin_c_mg: 1,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['豆腐', '味噌汁', 'みそ汁'],
-    name: '豆腐・味噌汁',
-    nutrients: {
-      energy_kcal: 80,
-      protein_g: 6,
-      fat_g: 3,
-      carb_g: 6,
-      salt_g: 1.5,
-      fiber_g: 1.5,
-      calcium_mg: 60,
-      iron_mg: 1,
-      vitamin_c_mg: 2,
-    },
-    weight: 1,
-  },
-  {
-    keywords: ['弁当', '定食'],
-    name: '弁当・定食',
-    nutrients: {
-      energy_kcal: 700,
-      protein_g: 28,
-      fat_g: 22,
-      carb_g: 95,
-      salt_g: 3.5,
-      fiber_g: 6,
-      vitamin_c_mg: 20,
-      calcium_mg: 80,
-      iron_mg: 2.5,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['ハンバーガー', 'バーガー'],
-    name: 'ハンバーガー',
-    nutrients: {
-      energy_kcal: 550,
-      protein_g: 25,
-      fat_g: 28,
-      carb_g: 48,
-      salt_g: 2.4,
-      fiber_g: 2,
-      calcium_mg: 100,
-      iron_mg: 2.5,
-      vitamin_c_mg: 4,
-    },
-    weight: 2,
-  },
-  {
-    keywords: ['ステーキ', '焼肉'],
-    name: '肉料理',
-    nutrients: {
-      energy_kcal: 450,
-      protein_g: 35,
-      fat_g: 30,
-      carb_g: 5,
-      salt_g: 2,
-      fiber_g: 0,
-      iron_mg: 3.5,
-      calcium_mg: 20,
-      vitamin_c_mg: 0,
-    },
-    weight: 2,
-  },
-];
-
-const EMPTY: NutrientValues = {
-  energy_kcal: 0,
-  protein_g: 0,
-  fat_g: 0,
-  carb_g: 0,
-  salt_g: 0,
-  fiber_g: 0,
-  vitamin_c_mg: 0,
-  calcium_mg: 0,
-  iron_mg: 0,
-};
-
-function scaleForPortion(text: string): number {
-  if (/大盛|おおもり|特盛/.test(text)) return 1.3;
-  if (/小盛|少なめ|半分/.test(text)) return 0.7;
-  if (/2杯|ふたつ|2個|２杯|２個/.test(text)) return 1.8;
-  return 1;
-}
 
 function scaleNutrients(n: NutrientValues, factor: number): NutrientValues {
   const round1 = (v: number) => Math.round(v * factor * 10) / 10;
+  const round2 = (v: number) => Math.round(v * factor * 100) / 100;
   return {
-    energy_kcal: Math.round((n.energy_kcal ?? 0) * factor),
+    energy_kcal: Math.round((n.energy_kcal ?? 0) * factor * 10) / 10,
     protein_g: round1(n.protein_g ?? 0),
     fat_g: round1(n.fat_g ?? 0),
     carb_g: round1(n.carb_g ?? 0),
-    salt_g: round1(n.salt_g ?? 0),
+    salt_g: round2(n.salt_g ?? 0),
     fiber_g: round1(n.fiber_g ?? 0),
     vitamin_c_mg: round1(n.vitamin_c_mg ?? 0),
     calcium_mg: round1(n.calcium_mg ?? 0),
@@ -371,82 +50,174 @@ function addNutrients(a: NutrientValues, b: NutrientValues): NutrientValues {
   };
 }
 
+/** 「150g」「２００グラム」などを抽出 */
+export function parseGramsFromText(text: string): number | null {
+  const normalized = text
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0))
+    .replace(/ｇ/g, 'g');
+  const m = normalized.match(/(\d+(?:\.\d+)?)\s*(?:g|グラム|ｸﾞﾗﾑ)/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0 || n > 5000) return null;
+  return n;
+}
+
+function portionFactor(text: string): number {
+  if (/大盛|おおもり|特盛/.test(text)) return 1.3;
+  if (/小盛|少なめ|半分/.test(text)) return 0.7;
+  if (/2杯|ふたつ|2個|２杯|２個/.test(text)) return 1.8;
+  return 1;
+}
+
+function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
+  const lower = text.toLowerCase();
+  const hits: { food: FoodEntry; keyword: string; len: number }[] = [];
+
+  for (const food of FOOD_DATABASE) {
+    let best: string | null = null;
+    for (const k of food.keywords) {
+      const key = k.toLowerCase();
+      if (lower.includes(key) || text.includes(k)) {
+        if (!best || k.length > best.length) best = k;
+      }
+    }
+    if (best) hits.push({ food, keyword: best, len: best.length });
+  }
+
+  // 長いキーワード優先。同じ食品は1つ。
+  hits.sort((a, b) => b.len - a.len || b.food.weight - a.food.weight);
+  const unique = new Map<string, { food: FoodEntry; keyword: string }>();
+  for (const h of hits) {
+    if (!unique.has(h.food.id)) unique.set(h.food.id, { food: h.food, keyword: h.keyword });
+  }
+
+  // 「ゆでブロッコリー」と「ブロッコリー」が両方当たるときは重い方だけ
+  const foods = [...unique.values()];
+  const filtered = foods.filter((a) => {
+    if (a.food.mode !== 'per100g') return true;
+    // より具体的な同系統（キーワード包含）があれば落とす
+    return !foods.some(
+      (b) =>
+        b.food.id !== a.food.id &&
+        b.food.weight > a.food.weight &&
+        b.food.keywords.some((bk) =>
+          a.food.keywords.some((ak) => bk.includes(ak) || ak.includes(bk)),
+        ),
+    );
+  });
+
+  return filtered;
+}
+
+export function nutrientsForGrams(
+  per100g: NutrientValues,
+  grams: number,
+): NutrientValues {
+  return scaleNutrients(per100g, grams / 100);
+}
+
 /**
  * 入力テキストから食事内容を推定する。
- * キーワード辞書ベースの概算（写真は使わない）。
+ * 成分表ベースの食品はグラム換算、料理は1食概算。
  */
-export function estimateMealFromText(text: string): MealEstimate {
+export function estimateMealFromText(
+  text: string,
+  gramsOverride?: number | null,
+): MealEstimate {
   const trimmed = text.trim();
   if (!trimmed) {
     return {
       displayName: '',
-      nutrients: { ...EMPTY },
+      nutrients: emptyNutrients(),
       confidence: 0,
       matchedKeywords: [],
       note: '食事内容を入力してください。',
+      supportsGrams: false,
+      grams: null,
+      per100g: null,
+      source: '',
     };
   }
 
-  const portion = scaleForPortion(trimmed);
-  const matched: FoodPattern[] = [];
-  const matchedKeywords: string[] = [];
+  const matches = findMatches(trimmed);
+  const portion = portionFactor(trimmed);
+  const parsedGrams = parseGramsFromText(trimmed);
 
-  for (const pattern of FOOD_PATTERNS) {
-    const hit = pattern.keywords.find((k) => trimmed.includes(k));
-    if (hit) {
-      matched.push(pattern);
-      matchedKeywords.push(hit);
+  if (matches.length === 0) {
+    return {
+      displayName: trimmed,
+      nutrients: emptyNutrients(),
+      confidence: 0,
+      matchedKeywords: [],
+      note:
+        '辞書にない食品です。食品名を変えるか、手入力で数値を入れてください（一般的な1食の仮置きはしません）。',
+      supportsGrams: false,
+      grams: null,
+      per100g: null,
+      source: '',
+    };
+  }
+
+  // 単一の per100g 食品 → グラム換算
+  if (matches.length === 1 && matches[0].food.mode === 'per100g') {
+    const food = matches[0].food;
+    const grams =
+      gramsOverride != null && gramsOverride > 0
+        ? gramsOverride
+        : parsedGrams ?? food.defaultGrams;
+    const nutrients = nutrientsForGrams(food.nutrients, grams);
+    return {
+      displayName: `${food.name}（${grams}g）`,
+      nutrients,
+      confidence: 0.85,
+      matchedKeywords: [matches[0].keyword],
+      note: `${food.source}の100gあたりを${grams}gに換算しました。グラムを変えると再計算できます。`,
+      supportsGrams: true,
+      grams,
+      per100g: { ...food.nutrients },
+      source: food.source,
+    };
+  }
+
+  // 複数 or 料理: 各食品を合算（per100g はデフォルトg、テキストにgがあれば優先）
+  let totals = emptyNutrients();
+  const names: string[] = [];
+  const keywords: string[] = [];
+  let anyPer100 = false;
+  let singlePer100: FoodEntry | null = null;
+
+  for (const m of matches) {
+    keywords.push(m.keyword);
+    if (m.food.mode === 'per100g') {
+      anyPer100 = true;
+      singlePer100 = m.food;
+      const g = parsedGrams ?? m.food.defaultGrams;
+      totals = addNutrients(totals, nutrientsForGrams(m.food.nutrients, g));
+      names.push(`${m.food.name}（${g}g）`);
+    } else {
+      totals = addNutrients(totals, scaleNutrients(m.food.nutrients, portion));
+      names.push(m.food.name);
     }
   }
 
-  // 重複名は重い方だけ残す
-  const unique = new Map<string, FoodPattern>();
-  for (const m of matched) {
-    const prev = unique.get(m.name);
-    if (!prev || m.weight > prev.weight) unique.set(m.name, m);
-  }
-  const foods = [...unique.values()];
-
-  if (foods.length === 0) {
-    // 未知の食事: 平均的な1食を仮置き
-    const fallback = scaleNutrients(
-      {
-        energy_kcal: 550,
-        protein_g: 20,
-        fat_g: 18,
-        carb_g: 70,
-        salt_g: 2.5,
-        fiber_g: 4,
-        vitamin_c_mg: 15,
-        calcium_mg: 60,
-        iron_mg: 1.5,
-      },
-      portion,
-    );
-    return {
-      displayName: trimmed,
-      nutrients: fallback,
-      confidence: 0.35,
-      matchedKeywords: [],
-      note: '辞書にない食事のため一般的な1食分の概算です。数値を調整してください。',
-    };
-  }
-
-  let totals = { ...EMPTY };
-  for (const food of foods) {
-    totals = addNutrients(totals, food.nutrients);
-  }
-  totals = scaleNutrients(totals, portion);
-
-  const confidence = Math.min(0.9, 0.45 + foods.length * 0.15 + (portion === 1 ? 0.05 : 0));
-  const displayName =
-    foods.length === 1 ? foods[0].name : foods.map((f) => f.name).join(' + ');
+  const supportsGrams =
+    matches.length === 1 && matches[0].food.mode === 'per100g';
+  const grams = supportsGrams
+    ? gramsOverride ?? parsedGrams ?? matches[0].food.defaultGrams
+    : null;
 
   return {
-    displayName: portion !== 1 ? `${displayName}（分量調整あり）` : displayName,
+    displayName:
+      portion !== 1 && !anyPer100
+        ? `${names.join(' + ')}（分量調整あり）`
+        : names.join(' + '),
     nutrients: totals,
-    confidence,
-    matchedKeywords,
-    note: `「${matchedKeywords.join('・')}」から概算しました。保存前に数値を確認してください。`,
+    confidence: Math.min(0.9, 0.5 + matches.length * 0.12),
+    matchedKeywords: keywords,
+    note: `「${keywords.join('・')}」から成分表・料理概算で算出しました。保存前に確認してください。`,
+    supportsGrams,
+    grams,
+    per100g: supportsGrams && singlePer100 ? { ...singlePer100.nutrients } : null,
+    source: matches.map((m) => m.food.source).join(' / '),
   };
 }

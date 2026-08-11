@@ -4,7 +4,10 @@ import { CameraCapture } from '../components/CameraCapture';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
 import { requestCameraAccess } from '../lib/cameraPermission';
 import { parseNutritionLabelImage } from '../lib/labelOcr';
-import { estimateMealFromText } from '../lib/mealEstimate';
+import {
+  estimateMealFromText,
+  nutrientsForGrams,
+} from '../lib/mealEstimate';
 import {
   PRIMARY_NUTRIENTS,
   getTargetValue,
@@ -70,6 +73,9 @@ export function RecordPage() {
     mode === 'manual' ? 'manual' : mode === 'ocr' ? 'ocr_label' : 'text',
   );
   const [readyToEdit, setReadyToEdit] = useState(mode === 'manual');
+  const [supportsGrams, setSupportsGrams] = useState(false);
+  const [grams, setGrams] = useState<number>(100);
+  const [per100g, setPer100g] = useState<NutrientValues | null>(null);
 
   const title =
     mode === 'ocr'
@@ -114,6 +120,9 @@ export function RecordPage() {
     setRawText('');
     setNote('');
     setError('');
+    setSupportsGrams(false);
+    setGrams(100);
+    setPer100g(null);
     setReadyToEdit(mode === 'manual');
     setInputMethod(mode === 'manual' ? 'manual' : mode === 'ocr' ? 'ocr_label' : 'text');
   };
@@ -139,8 +148,11 @@ export function RecordPage() {
 
   const onEstimate = () => {
     const result = estimateMealFromText(mealText);
-    if (!result.displayName && result.confidence === 0) {
+    if (result.confidence === 0 && Object.values(result.nutrients).every((v) => !v)) {
       setError(result.note);
+      setReadyToEdit(false);
+      setSupportsGrams(false);
+      setPer100g(null);
       return;
     }
     setError('');
@@ -151,7 +163,30 @@ export function RecordPage() {
     setNote(result.note);
     setRawText('');
     setInputMethod('text');
+    setSupportsGrams(result.supportsGrams);
+    if (result.supportsGrams && result.per100g) {
+      setPer100g(result.per100g);
+      setGrams(result.grams ?? 100);
+    } else {
+      setPer100g(null);
+    }
     setReadyToEdit(true);
+  };
+
+  const onGramsChange = (value: string) => {
+    const n = Number(value);
+    const next = Number.isFinite(n) && n > 0 ? n : 0;
+    setGrams(next);
+    if (!per100g || next <= 0) return;
+    const scaled = nutrientsForGrams(per100g, next);
+    setNutrients({ ...EMPTY, ...scaled });
+    setDisplayName((prev) => {
+      const base = prev.replace(/（\d+(?:\.\d+)?g）$/, '');
+      return `${base}（${next}g）`;
+    });
+    setNote(
+      `成分表の100gあたりを${next}gに換算しました。保存前に数値を確認してください。`,
+    );
   };
 
   const onLabelImage = async (file: File | undefined) => {
@@ -241,15 +276,33 @@ export function RecordPage() {
               id="meal"
               value={mealText}
               onChange={(e) => setMealText(e.target.value)}
-              placeholder="例: 親子丼と味噌汁、サラダチキンとご飯、ラーメン大盛"
+              placeholder="例: ブロッコリー、親子丼と味噌汁、サラダチキン100g"
             />
           </div>
           <p className="muted" style={{ fontSize: '0.8rem' }}>
-            「大盛」「小盛」などの分量表現にも対応します。
+            野菜などは成分表の100gあたりから換算します。「ブロッコリー150g」のようにグラムも書けます。
           </p>
           <button type="button" className="btn btn-primary" onClick={onEstimate}>
             栄養素を推測
           </button>
+          {supportsGrams && readyToEdit && (
+            <div className="field" style={{ marginTop: '1rem' }}>
+              <label htmlFor="grams">分量（グラム）</label>
+              <input
+                id="grams"
+                type="number"
+                min={1}
+                max={5000}
+                step={1}
+                value={grams || ''}
+                onChange={(e) => onGramsChange(e.target.value)}
+                data-testid="grams-input"
+              />
+              <p className="muted" style={{ fontSize: '0.8rem' }}>
+                グラムを変えるとエネルギー・たんぱく質などが再計算されます。
+              </p>
+            </div>
+          )}
         </section>
       )}
 
