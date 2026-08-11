@@ -14,12 +14,18 @@ const GOAL_DELTA: Record<GoalType, number> = {
   gain: 300,
 };
 
-/** 厚生労働省「日本人の食事摂取基準（2025年版）」 */
+/**
+ * 厚生労働省「日本人の食事摂取基準」への準拠メタ情報。
+ * 新年版が出たら editionYear / name / period と栄養テーブルを必ず更新する。
+ */
 export const DRI_SOURCE = {
   name: '日本人の食事摂取基準（2025年版）',
+  editionYear: 2025,
   publisher: '厚生労働省',
   url: 'https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html',
   period: '令和7〜11年度',
+  /** check:dri で厚労省ページと突き合わせた日（YYYY-MM-DD） */
+  lastChecked: '2026-08-11',
 } as const;
 
 /**

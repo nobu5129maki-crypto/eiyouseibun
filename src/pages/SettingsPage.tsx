@@ -62,7 +62,8 @@ export function SettingsPage() {
             <a href={DRI_SOURCE.url} target="_blank" rel="noreferrer">
               {DRI_SOURCE.name}
             </a>
-            」（{DRI_SOURCE.period}）および一般的なエネルギー推定式に基づく簡易目安です。医療上の指示がある場合はそれに従ってください。
+            」（{DRI_SOURCE.period}）および一般的なエネルギー推定式に基づく簡易目安です。基準が改定されたときはアプリ側の目安も更新します（最終確認:{' '}
+            {DRI_SOURCE.lastChecked}）。医療上の指示がある場合はそれに従ってください。
           </p>
           <ul
             className="muted"

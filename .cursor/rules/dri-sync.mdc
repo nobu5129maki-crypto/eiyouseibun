@@ -1,0 +1,20 @@
+---
+description: Keep daily nutrition targets aligned with latest Japanese DRI
+alwaysApply: true
+---
+
+# 食事摂取基準の追従（必須）
+
+1日の摂取目安（`src/lib/targets.ts`）は厚生労働省「日本人の食事摂取基準」の**最新版**に合わせる。
+
+## 改定を検知したら
+
+厚労省ページや `npm run check:dri` で新年版（例: 2030年版）が出ている、または既存年版の数値が変わっていると分かったら、その場でアプリを更新する。
+
+1. [食事摂取基準ページ](https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html)と報告書から最新の推奨量・目標量を確認
+2. `src/lib/targets.ts` の `DRI_SOURCE`（editionYear / name / period）と食塩・食物繊維・ビタミンC・Ca・鉄などのテーブル、`TARGET_BASIS_LINES` を更新
+3. `scripts/verify-targets.mjs` の期待値を新基準に合わせる
+4. `node scripts/verify-targets.mjs` と `npm run build` で検証
+5. commit → `git push` → `vercel --prod --yes`（deploy ルールどおり）
+
+ユーザーに「後で更新します」と先送りしない。設定画面の根拠表記も最新版名に揃える。

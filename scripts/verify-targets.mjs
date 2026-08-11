@@ -32,6 +32,8 @@ const mod = await import(pathToFileURL(out).href + `?t=${Date.now()}`);
 fs.unlinkSync(out);
 
 assert.equal(mod.DRI_SOURCE.name, '日本人の食事摂取基準（2025年版）');
+assert.equal(mod.DRI_SOURCE.editionYear, 2025);
+assert.match(String(mod.DRI_SOURCE.lastChecked), /^\d{4}-\d{2}-\d{2}$/);
 assert.ok(mod.TARGET_BASIS_LINES.length >= 6);
 
 // 食塩: 目標量

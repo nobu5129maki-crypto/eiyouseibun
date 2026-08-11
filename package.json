@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:dri": "node scripts/check-dri-update.mjs",
+    "verify:targets": "node scripts/verify-targets.mjs"
   },
   "dependencies": {
     "react": "^19.2.3",
