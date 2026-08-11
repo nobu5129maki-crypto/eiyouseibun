@@ -2,8 +2,10 @@ import { Link } from 'react-router-dom';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
 import {
   ACTIVITY_LABELS,
+  DRI_SOURCE,
   GOAL_LABELS,
   SEX_LABELS,
+  TARGET_BASIS_LINES,
 } from '../lib/targets';
 import { useApp } from '../store/AppContext';
 
@@ -52,6 +54,29 @@ export function SettingsPage() {
             ビタミンC {targets.vitamin_c_mg}mg ・ カルシウム {targets.calcium_mg}
             mg ・ 鉄 {targets.iron_mg}mg
           </p>
+
+          <h3 style={{ marginTop: 16 }}>目安の根拠</h3>
+          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 8 }}>
+            {DRI_SOURCE.publisher}
+            「
+            <a href={DRI_SOURCE.url} target="_blank" rel="noreferrer">
+              {DRI_SOURCE.name}
+            </a>
+            」（{DRI_SOURCE.period}）および一般的なエネルギー推定式に基づく簡易目安です。医療上の指示がある場合はそれに従ってください。
+          </p>
+          <ul
+            className="muted"
+            style={{
+              fontSize: '0.8rem',
+              paddingLeft: '1.2rem',
+              margin: 0,
+              lineHeight: 1.55,
+            }}
+          >
+            {TARGET_BASIS_LINES.map((line) => (
+              <li key={line.slice(0, 24)}>{line}</li>
+            ))}
+          </ul>
 
           <Link className="btn btn-primary" to="/onboarding" style={{ textAlign: 'center' }}>
             プロフィールを編集・再計算

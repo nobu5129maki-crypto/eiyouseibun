@@ -51,10 +51,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const state = loadAppState();
+    const nextTargets = state.profile
+      ? calculateDailyTargets(state.profile)
+      : state.targets;
     setProfile(state.profile);
-    setTargets(state.targets);
+    setTargets(nextTargets);
     setMeals(state.meals);
     setReady(true);
+    if (state.profile && nextTargets) {
+      saveAppState({
+        profile: state.profile,
+        targets: nextTargets,
+        meals: state.meals,
+      });
+    }
   }, []);
 
   const persist = useCallback(

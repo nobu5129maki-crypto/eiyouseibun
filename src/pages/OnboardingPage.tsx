@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ACTIVITY_LABELS,
+  DRI_SOURCE,
   GOAL_LABELS,
   SEX_LABELS,
   calculateDailyTargets,
@@ -73,7 +74,8 @@ export function OnboardingPage() {
       <header>
         <p className="brand">Eiyo Balance</p>
         <p className="muted">
-          年齢・体格・活動量から 1 日の栄養摂取目安を自動設定します。
+          年齢・体格・活動量から 1 日の栄養摂取目安を自動設定します（
+          {DRI_SOURCE.name} 等に基づく簡易目安）。
         </p>
       </header>
 
@@ -180,6 +182,9 @@ export function OnboardingPage() {
             </div>
             <div>
               食塩 {preview.salt_g}g ・ 食物繊維 {preview.fiber_g}g
+            </div>
+            <div className="muted" style={{ fontSize: '0.78rem', marginTop: 6 }}>
+              根拠の詳細は設定画面に記載しています。
             </div>
           </div>
         )}
