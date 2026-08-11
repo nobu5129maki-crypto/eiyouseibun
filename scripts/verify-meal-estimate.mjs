@@ -210,9 +210,31 @@ const burger = mod.estimateMealFromText('ハンバーガー');
 assert.match(burger.displayName, /ハンバーガー/);
 approx(burger.nutrients.energy_kcal, 280, 1);
 
+// スタバ系ドリンク
+const soyLatte = mod.estimateMealFromText('ソイラテ');
+assert.match(soyLatte.displayName, /ソイラテ/);
+approx(soyLatte.nutrients.energy_kcal, 154, 1);
+assert.ok(!/豆乳（/.test(soyLatte.displayName));
+
+const soyLatteStaba = mod.estimateMealFromText('スタバのソイラテ');
+assert.match(soyLatteStaba.displayName, /ソイラテ/);
+assert.equal(soyLatteStaba.matchedKeywords.length, 1);
+approx(soyLatteStaba.nutrients.energy_kcal, 154, 1);
+
+const cafeLatte = mod.estimateMealFromText('カフェラテ');
+assert.match(cafeLatte.displayName, /カフェラテ/);
+approx(cafeLatte.nutrients.energy_kcal, 184, 1);
+
+const matchaLatte = mod.estimateMealFromText('抹茶ラテ');
+assert.match(matchaLatte.displayName, /抹茶ラテ/);
+
+const starbucks = mod.estimateMealFromText('スタバ');
+assert.match(starbucks.displayName, /スタバ/);
+
 console.log('verify-meal-estimate: OK');
 console.log('  かつ丼:', mod.estimateMealFromText('かつ丼').nutrients);
 console.log('  ビッグマック:', bigmac.nutrients);
+console.log('  ソイラテ:', soyLatte.nutrients);
 console.log('  ワイン120ml:', wine.nutrients);
 console.log('  ハイボール350ml:', highball.nutrients);
 console.log('  日本酒180ml:', sake.nutrients);
