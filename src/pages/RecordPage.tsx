@@ -67,7 +67,6 @@ export function RecordPage() {
   const [note, setNote] = useState('');
   const [confidence, setConfidence] = useState<number | null>(null);
   const [matched, setMatched] = useState<string[]>([]);
-  const [rawText, setRawText] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -136,7 +135,6 @@ export function RecordPage() {
     setNutrients({ ...EMPTY });
     setConfidence(null);
     setMatched([]);
-    setRawText('');
     setNote('');
     setError('');
     setSupportsGrams(false);
@@ -182,7 +180,6 @@ export function RecordPage() {
     setConfidence(result.confidence);
     setMatched(result.matchedKeywords);
     setNote(result.note);
-    setRawText('');
     setInputMethod('text');
     setSupportsGrams(result.supportsGrams);
     if (result.supportsGrams && result.per100g) {
@@ -228,7 +225,6 @@ export function RecordPage() {
       setNutrients(nextNutrients);
       setConfidence(parsed.confidence);
       setMatched([]);
-      setRawText(parsed.rawText);
       setNote(parsed.servingLabel);
       setInputMethod('ocr_label');
       setReadyToEdit(true);
@@ -240,7 +236,7 @@ export function RecordPage() {
         (nextNutrients.salt_g || 0);
       if (coreSum <= 0) {
         setError(
-          '数値を抽出できませんでした。OCR生テキストを確認し、下の欄へ手入力するか再撮影してください。',
+          '数値を抽出できませんでした。下の欄へ手入力するか、再撮影してください。',
         );
       } else if ((parsed.confidence ?? 0) < 0.55) {
         setError('読み取り精度が低い可能性があります。数値を確認してください。');
@@ -256,7 +252,6 @@ export function RecordPage() {
       setReadyToEdit(false);
       setNutrients({ ...EMPTY });
       setConfidence(null);
-      setRawText('');
       setNote('');
     } finally {
       setLoading(false);
@@ -560,13 +555,6 @@ export function RecordPage() {
             <p className="muted" style={{ fontSize: '0.85rem' }}>
               {note}
             </p>
-          )}
-
-          {rawText && (
-            <div className="raw-box">
-              <strong style={{ fontSize: '0.8rem' }}>OCR 生テキスト</strong>
-              <pre>{rawText}</pre>
-            </div>
           )}
 
           {pctPreview.length > 0 && (

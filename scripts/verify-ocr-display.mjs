@@ -17,7 +17,10 @@ const ocrSrc = fs.readFileSync(path.join(root, 'src/lib/labelOcr.ts'), 'utf8');
 assert.match(pageSrc, /ocr-result-summary/);
 assert.match(pageSrc, /ocr-error/);
 assert.match(pageSrc, /読み取り結果/);
+assert.doesNotMatch(pageSrc, /OCR 生テキスト/);
 assert.match(ocrSrc, /hits < 2/);
+assert.match(ocrSrc, /adaptive/);
+assert.match(ocrSrc, /scoreParsedNutrition/);
 
 const profileState = {
   profile: {
