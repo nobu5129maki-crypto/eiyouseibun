@@ -37,6 +37,9 @@ assert.match(dbSrc, /赤ワイン/);
 assert.match(dbSrc, /焼酎/);
 assert.match(dbSrc, /日本酒/);
 assert.match(dbSrc, /チューハイ/);
+assert.match(dbSrc, /かつ丼/);
+assert.match(dbSrc, /天丼/);
+assert.match(dbSrc, /カツカレー/);
 assert.match(dbSrc, /mode:\s*'per100ml'/);
 assert.match(dbSrc, /energy_kcal:\s*67/);
 assert.match(estSrc, /parseMlFromText/);
@@ -154,7 +157,36 @@ assert.match(highball.note, /アルコール/);
 const gingerHb = mod.estimateMealFromText('ジンジャーハイボール');
 assert.ok((gingerHb.nutrients.carb_g ?? 0) >= 15);
 
+// 丼・定番料理
+for (const label of ['かつ丼', 'カツ丼', '豚カツ丼', 'とんかつ丼']) {
+  const katsu = mod.estimateMealFromText(label);
+  assert.match(katsu.displayName, /かつ丼/, `display for ${label}`);
+  approx(katsu.nutrients.energy_kcal, 890, 1);
+  assert.ok(katsu.confidence > 0);
+  assert.ok(
+    !/とんかつ定食/.test(katsu.displayName),
+    `${label} must not also match tonkatsu teishoku`,
+  );
+}
+
+const tendon = mod.estimateMealFromText('天丼');
+assert.match(tendon.displayName, /天丼/);
+approx(tendon.nutrients.energy_kcal, 800, 1);
+
+const unadon = mod.estimateMealFromText('うな丼');
+assert.match(unadon.displayName, /うな丼/);
+
+const katsucurry = mod.estimateMealFromText('カツカレー');
+assert.match(katsucurry.displayName, /カツカレー/);
+assert.ok(!/カレーライス/.test(katsucurry.displayName));
+approx(katsucurry.nutrients.energy_kcal, 980, 1);
+
+const tonkatsuDon = mod.estimateMealFromText('とんかつ丼');
+assert.match(tonkatsuDon.displayName, /かつ丼/);
+assert.equal(tonkatsuDon.matchedKeywords.length, 1);
+
 console.log('verify-meal-estimate: OK');
+console.log('  かつ丼:', mod.estimateMealFromText('かつ丼').nutrients);
 console.log('  ワイン120ml:', wine.nutrients);
 console.log('  ハイボール350ml:', highball.nutrients);
 console.log('  日本酒180ml:', sake.nutrients);

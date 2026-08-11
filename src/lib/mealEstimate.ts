@@ -126,15 +126,28 @@ function portionFactor(text: string): number {
   return 1;
 }
 
+/** ひらがな・カタカナを揃えて部分一致しやすくする */
+function foldKana(text: string): string {
+  return text.replace(/[\u30a1-\u30f6]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0x60),
+  );
+}
+
 function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
   const lower = text.toLowerCase();
+  const folded = foldKana(lower);
   const hits: { food: FoodEntry; keyword: string; len: number }[] = [];
 
   for (const food of FOOD_DATABASE) {
     let best: string | null = null;
     for (const k of food.keywords) {
       const key = k.toLowerCase();
-      if (lower.includes(key) || text.includes(k)) {
+      const keyFolded = foldKana(key);
+      if (
+        lower.includes(key) ||
+        text.includes(k) ||
+        folded.includes(keyFolded)
+      ) {
         if (!best || k.length > best.length) best = k;
       }
     }
@@ -148,9 +161,22 @@ function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
   }
 
   const foods = [...unique.values()];
-  return foods.filter((a) => {
-    if (!isScalableFood(a.food)) return true;
+  // 長いキーワードに含まれる短い一致は落とす（例: とんかつ丼 ⊂ とんかつ、カツカレー ⊂ カレー）
+  const afterSubsume = foods.filter((a) => {
     return !foods.some(
+      (b) =>
+        b.food.id !== a.food.id &&
+        b.keyword.length > a.keyword.length &&
+        (b.keyword.includes(a.keyword) ||
+          foldKana(b.keyword.toLowerCase()).includes(
+            foldKana(a.keyword.toLowerCase()),
+          )),
+    );
+  });
+
+  return afterSubsume.filter((a) => {
+    if (!isScalableFood(a.food)) return true;
+    return !afterSubsume.some(
       (b) =>
         b.food.id !== a.food.id &&
         b.food.weight > a.food.weight &&
