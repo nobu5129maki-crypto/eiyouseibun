@@ -36,6 +36,35 @@ const EMPTY: NutrientValues = {
   iron_mg: 0,
 };
 
+const NUTRIENT_KEYS = Object.keys(EMPTY) as (keyof NutrientValues)[];
+
+type NutrientDrafts = Record<keyof NutrientValues, string>;
+
+function draftsFromNutrients(values: NutrientValues): NutrientDrafts {
+  return NUTRIENT_KEYS.reduce((acc, key) => {
+    const n = values[key] ?? 0;
+    if (!Number.isFinite(n) || n === 0) {
+      // 0 は空欄にして「0.5」などの小数をそのまま打ちやすくする
+      acc[key] = '';
+      return acc;
+    }
+    acc[key] = String(Math.round(n * 1000) / 1000);
+    return acc;
+  }, {} as NutrientDrafts);
+}
+
+function parseNutrientDraft(value: string): number {
+  const trimmed = value.trim();
+  if (trimmed === '' || trimmed === '.') return 0;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** 入力途中の「1.」「0.」なども受け付ける */
+function isNutrientDraftText(value: string): boolean {
+  return value === '' || /^\d*\.?\d*$/.test(value);
+}
+
 function guessSlot(): MealSlot {
   const h = new Date().getHours();
   if (h < 10) return 'breakfast';
@@ -64,6 +93,9 @@ export function RecordPage() {
   const [displayName, setDisplayName] = useState('');
   const [mealSlot, setMealSlot] = useState<MealSlot>(guessSlot());
   const [nutrients, setNutrients] = useState<NutrientValues>({ ...EMPTY });
+  const [nutrientDrafts, setNutrientDrafts] = useState<NutrientDrafts>(() =>
+    draftsFromNutrients(EMPTY),
+  );
   const [note, setNote] = useState('');
   const [confidence, setConfidence] = useState<number | null>(null);
   const [matched, setMatched] = useState<string[]>([]);
@@ -78,6 +110,7 @@ export function RecordPage() {
   const [grams, setGrams] = useState<number>(100);
   const [amountUnit, setAmountUnit] = useState<AmountUnit>('g');
   const [per100g, setPer100g] = useState<NutrientValues | null>(null);
+  const [resultFocusKey, setResultFocusKey] = useState(0);
 
   const title =
     mode === 'ocr'
@@ -116,15 +149,22 @@ export function RecordPage() {
   }, [inputMethod, readyToEdit, nutrients]);
 
   useEffect(() => {
-    if (!readyToEdit || inputMethod !== 'ocr_label') return;
+    if (!readyToEdit) return;
+    // テキスト推測・OCR・手入力いずれも結果欄へスクロール
     resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [readyToEdit, inputMethod, nutrients.energy_kcal]);
+  }, [readyToEdit, inputMethod, resultFocusKey]);
+
+  const applyNutrients = (next: NutrientValues) => {
+    setNutrients(next);
+    setNutrientDrafts(draftsFromNutrients(next));
+  };
 
   const setField = (key: keyof NutrientValues, value: string) => {
-    const n = Number(value);
+    if (!isNutrientDraftText(value)) return;
+    setNutrientDrafts((prev) => ({ ...prev, [key]: value }));
     setNutrients((prev) => ({
       ...prev,
-      [key]: Number.isFinite(n) ? n : 0,
+      [key]: parseNutrientDraft(value),
     }));
   };
 
@@ -132,7 +172,7 @@ export function RecordPage() {
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
     setDisplayName('');
-    setNutrients({ ...EMPTY });
+    applyNutrients({ ...EMPTY });
     setConfidence(null);
     setMatched([]);
     setNote('');
@@ -165,18 +205,40 @@ export function RecordPage() {
   };
 
   const onEstimate = () => {
-    const result = estimateMealFromText(mealText);
-    if (result.confidence === 0 && Object.values(result.nutrients).every((v) => !v)) {
-      setError(result.note);
+    const trimmed = mealText.trim();
+    if (!trimmed) {
+      setError('食事内容を入力してください');
       setReadyToEdit(false);
+      return;
+    }
+    const result = estimateMealFromText(trimmed);
+    const unknown =
+      result.confidence === 0 &&
+      Object.values(result.nutrients).every((v) => !v);
+
+    // 辞書になくても確認フォームを開き、手入力で続行できるようにする
+    if (unknown) {
+      setError(
+        result.note ||
+          '辞書にない食品です。下の欄に数値を手入力してください。',
+      );
+      setDisplayName(trimmed);
+      applyNutrients({ ...EMPTY });
+      setConfidence(0);
+      setMatched([]);
+      setNote('推測できませんでした。わかっている数値を手入力してください。');
+      setInputMethod('text');
       setSupportsGrams(false);
       setPer100g(null);
       setAmountUnit('g');
+      setReadyToEdit(true);
+      setResultFocusKey((k) => k + 1);
       return;
     }
+
     setError('');
-    setDisplayName(result.displayName || mealText.trim());
-    setNutrients({ ...EMPTY, ...result.nutrients });
+    setDisplayName(result.displayName || trimmed);
+    applyNutrients({ ...EMPTY, ...result.nutrients });
     setConfidence(result.confidence);
     setMatched(result.matchedKeywords);
     setNote(result.note);
@@ -191,6 +253,7 @@ export function RecordPage() {
       setAmountUnit('g');
     }
     setReadyToEdit(true);
+    setResultFocusKey((k) => k + 1);
   };
 
   const onGramsChange = (value: string) => {
@@ -200,7 +263,7 @@ export function RecordPage() {
     if (!per100g || next <= 0) return;
     const unit = amountUnit;
     const scaled = nutrientsForGrams(per100g, next);
-    setNutrients({ ...EMPTY, ...scaled });
+    applyNutrients({ ...EMPTY, ...scaled });
     setDisplayName((prev) => {
       const base = prev.replace(/（\d+(?:\.\d+)?(?:g|ml)）$/, '');
       return `${base}（${next}${unit}）`;
@@ -222,7 +285,7 @@ export function RecordPage() {
       const parsed = await parseNutritionLabelImage(file);
       const nextNutrients = { ...EMPTY, ...parsed.nutrients };
       setDisplayName(parsed.productName || '栄養成分表示（読取）');
-      setNutrients(nextNutrients);
+      applyNutrients(nextNutrients);
       setConfidence(parsed.confidence);
       setMatched([]);
       setNote(parsed.servingLabel);
@@ -250,7 +313,7 @@ export function RecordPage() {
           : '栄養成分表示の読み取りに失敗しました。もう一度お試しください。';
       setError(message);
       setReadyToEdit(false);
-      setNutrients({ ...EMPTY });
+      applyNutrients({ ...EMPTY });
       setConfidence(null);
       setNote('');
     } finally {
@@ -264,12 +327,24 @@ export function RecordPage() {
       setError('食品名を入力してください');
       return;
     }
-    const energy = Number(nutrients.energy_kcal) || 0;
-    const protein = Number(nutrients.protein_g) || 0;
-    const fat = Number(nutrients.fat_g) || 0;
-    const carb = Number(nutrients.carb_g) || 0;
-    const salt = Number(nutrients.salt_g) || 0;
-    if (protein + fat + carb + energy <= 0) {
+    const parsedNutrients = NUTRIENT_KEYS.reduce((acc, key) => {
+      acc[key] = parseNutrientDraft(nutrientDrafts[key] ?? '');
+      return acc;
+    }, { ...EMPTY } as NutrientValues);
+    const energy = parsedNutrients.energy_kcal;
+    const protein = parsedNutrients.protein_g;
+    const fat = parsedNutrients.fat_g;
+    const carb = parsedNutrients.carb_g;
+    const salt = parsedNutrients.salt_g;
+    const fiber = parsedNutrients.fiber_g ?? 0;
+    const vitaminC = parsedNutrients.vitamin_c_mg ?? 0;
+    const calcium = parsedNutrients.calcium_mg ?? 0;
+    const iron = parsedNutrients.iron_mg ?? 0;
+    // タンパク質 0.5g など小数や、一部の栄養素だけの記録も許可
+    if (
+      protein + fat + carb + energy + salt + fiber + vitaminC + calcium + iron <=
+      0
+    ) {
       setError('栄養素を入力または読み取ってください');
       return;
     }
@@ -279,16 +354,15 @@ export function RecordPage() {
       inputMethod,
       note: note || undefined,
       nutrients: {
-        ...nutrients,
         energy_kcal: energy,
         protein_g: protein,
         fat_g: fat,
         carb_g: carb,
         salt_g: salt,
-        fiber_g: Number(nutrients.fiber_g) || 0,
-        vitamin_c_mg: Number(nutrients.vitamin_c_mg) || 0,
-        calcium_mg: Number(nutrients.calcium_mg) || 0,
-        iron_mg: Number(nutrients.iron_mg) || 0,
+        fiber_g: fiber,
+        vitamin_c_mg: vitaminC,
+        calcium_mg: calcium,
+        iron_mg: iron,
       },
     });
     if (!saved?.id) {
@@ -325,9 +399,19 @@ export function RecordPage() {
           <p className="muted" style={{ fontSize: '0.8rem' }}>
             野菜はグラム、牛乳などの飲料はミリリットルで換算します。「牛乳200ml」「ブロッコリー150g」も書けます。
           </p>
-          <button type="button" className="btn btn-primary" onClick={onEstimate}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onEstimate}
+            data-testid="estimate-button"
+          >
             栄養素を推測
           </button>
+          {error && mode === 'text' && !readyToEdit && (
+            <div className="alert danger" data-testid="estimate-error" style={{ marginTop: '0.75rem' }}>
+              {error}
+            </div>
+          )}
           {supportsGrams && readyToEdit && (
             <div className="field" style={{ marginTop: '1rem' }}>
               <label htmlFor="grams">
@@ -336,9 +420,10 @@ export function RecordPage() {
               <input
                 id="grams"
                 type="number"
-                min={1}
+                min={0.1}
                 max={5000}
-                step={1}
+                step="any"
+                inputMode="decimal"
                 value={grams || ''}
                 onChange={(e) => onGramsChange(e.target.value)}
                 data-testid="grams-input"
@@ -542,8 +627,9 @@ export function RecordPage() {
               <input
                 id={key}
                 inputMode="decimal"
+                placeholder="0"
                 data-testid={`manual-field-${key}`}
-                value={String(nutrients[key] ?? 0)}
+                value={nutrientDrafts[key] ?? ''}
                 onChange={(e) => setField(key, e.target.value)}
               />
             </div>
