@@ -260,6 +260,50 @@ for (const [input, re] of washokuCases) {
   assert.ok(r.confidence > 0, `confidence for ${input}`);
 }
 
+// 一品料理（手羽など）
+const ippinCases = [
+  ['手羽先唐揚げ', /手羽先唐揚げ/, 380],
+  ['手羽唐揚げ', /手羽/, 380],
+  ['手羽の甘辛煮', /甘辛煮/, 320],
+  ['手羽先', /手羽先/, 300],
+  ['手羽元', /手羽元/, 310],
+  ['手羽', /手羽/, 300],
+  ['鶏の照り焼き', /照り焼き/, 380],
+  ['竜田揚げ', /竜田揚げ/, 340],
+  ['油淋鶏', /油淋鶏/, 420],
+  ['バンバンジー', /バンバンジー/, 280],
+  ['豚の角煮', /角煮/, 480],
+  ['冷しゃぶ', /冷しゃぶ/, 250],
+  ['筑前煮', /筑前煮/, 280],
+  ['ぶり大根', /ぶり大根/, 320],
+  ['鯖の味噌煮', /味噌煮/, 340],
+  ['さんまの塩焼き', /さんま/, 300],
+  ['鮭の塩焼き', /鮭/, 220],
+  ['きんぴらごぼう', /きんぴら/, 120],
+  ['ひじきの煮物', /ひじき/, 100],
+  ['酢豚', /酢豚/, 450],
+  ['回鍋肉', /回鍋肉/, 380],
+  ['レバニラ', /レバニラ/, 280],
+  ['エビチリ', /エビチリ/, 320],
+  ['ビーフシチュー', /ビーフシチュー/, 480],
+  ['ポテトサラダ', /ポテトサラダ/, 180],
+  ['もつ煮', /もつ煮/, 280],
+];
+for (const [input, re, kcal] of ippinCases) {
+  const r = mod.estimateMealFromText(input);
+  assert.match(r.displayName, re, `ippin: ${input} -> ${r.displayName}`);
+  approx(r.nutrients.energy_kcal, kcal, 1);
+  assert.equal(
+    r.matchedKeywords.length,
+    1,
+    `ippin single match for ${input}: ${r.matchedKeywords.join(',')}`,
+  );
+}
+
+const tebaKara = mod.estimateMealFromText('手羽先唐揚げ');
+assert.ok(!/唐揚げ$/.test(tebaKara.displayName) || /手羽/.test(tebaKara.displayName));
+assert.ok(!tebaKara.displayName.includes('+'), '手羽先唐揚げ must not sum with 唐揚げ');
+
 const tonkotsu = mod.estimateMealFromText('豚骨ラーメン');
 assert.ok(!/^ラーメン$/.test(tonkotsu.displayName));
 assert.equal(tonkotsu.matchedKeywords.length, 1);
@@ -275,3 +319,4 @@ console.log('  ソイラテ:', soyLatte.nutrients);
 console.log('  ワイン120ml:', wine.nutrients);
 console.log('  ハイボール350ml:', highball.nutrients);
 console.log('  日本酒180ml:', sake.nutrients);
+console.log('  手羽先唐揚げ:', tebaKara.nutrients);
