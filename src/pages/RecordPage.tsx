@@ -43,11 +43,11 @@ type NutrientDrafts = Record<keyof NutrientValues, string>;
 function draftsFromNutrients(values: NutrientValues): NutrientDrafts {
   return NUTRIENT_KEYS.reduce((acc, key) => {
     const n = values[key] ?? 0;
-    if (!Number.isFinite(n)) {
-      acc[key] = '0';
+    if (!Number.isFinite(n) || n === 0) {
+      // 0 は空欄にして「0.5」などの小数をそのまま打ちやすくする
+      acc[key] = '';
       return acc;
     }
-    // 表示の桁揺れを抑えつつ、0.5 などの小数をそのまま残す
     acc[key] = String(Math.round(n * 1000) / 1000);
     return acc;
   }, {} as NutrientDrafts);
@@ -110,6 +110,7 @@ export function RecordPage() {
   const [grams, setGrams] = useState<number>(100);
   const [amountUnit, setAmountUnit] = useState<AmountUnit>('g');
   const [per100g, setPer100g] = useState<NutrientValues | null>(null);
+  const [resultFocusKey, setResultFocusKey] = useState(0);
 
   const title =
     mode === 'ocr'
@@ -148,9 +149,10 @@ export function RecordPage() {
   }, [inputMethod, readyToEdit, nutrients]);
 
   useEffect(() => {
-    if (!readyToEdit || inputMethod !== 'ocr_label') return;
+    if (!readyToEdit) return;
+    // テキスト推測・OCR・手入力いずれも結果欄へスクロール
     resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [readyToEdit, inputMethod, nutrients.energy_kcal]);
+  }, [readyToEdit, inputMethod, resultFocusKey]);
 
   const applyNutrients = (next: NutrientValues) => {
     setNutrients(next);
@@ -203,17 +205,39 @@ export function RecordPage() {
   };
 
   const onEstimate = () => {
-    const result = estimateMealFromText(mealText);
-    if (result.confidence === 0 && Object.values(result.nutrients).every((v) => !v)) {
-      setError(result.note);
+    const trimmed = mealText.trim();
+    if (!trimmed) {
+      setError('食事内容を入力してください');
       setReadyToEdit(false);
+      return;
+    }
+    const result = estimateMealFromText(trimmed);
+    const unknown =
+      result.confidence === 0 &&
+      Object.values(result.nutrients).every((v) => !v);
+
+    // 辞書になくても確認フォームを開き、手入力で続行できるようにする
+    if (unknown) {
+      setError(
+        result.note ||
+          '辞書にない食品です。下の欄に数値を手入力してください。',
+      );
+      setDisplayName(trimmed);
+      applyNutrients({ ...EMPTY });
+      setConfidence(0);
+      setMatched([]);
+      setNote('推測できませんでした。わかっている数値を手入力してください。');
+      setInputMethod('text');
       setSupportsGrams(false);
       setPer100g(null);
       setAmountUnit('g');
+      setReadyToEdit(true);
+      setResultFocusKey((k) => k + 1);
       return;
     }
+
     setError('');
-    setDisplayName(result.displayName || mealText.trim());
+    setDisplayName(result.displayName || trimmed);
     applyNutrients({ ...EMPTY, ...result.nutrients });
     setConfidence(result.confidence);
     setMatched(result.matchedKeywords);
@@ -229,6 +253,7 @@ export function RecordPage() {
       setAmountUnit('g');
     }
     setReadyToEdit(true);
+    setResultFocusKey((k) => k + 1);
   };
 
   const onGramsChange = (value: string) => {
@@ -374,9 +399,19 @@ export function RecordPage() {
           <p className="muted" style={{ fontSize: '0.8rem' }}>
             野菜はグラム、牛乳などの飲料はミリリットルで換算します。「牛乳200ml」「ブロッコリー150g」も書けます。
           </p>
-          <button type="button" className="btn btn-primary" onClick={onEstimate}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onEstimate}
+            data-testid="estimate-button"
+          >
             栄養素を推測
           </button>
+          {error && mode === 'text' && !readyToEdit && (
+            <div className="alert danger" data-testid="estimate-error" style={{ marginTop: '0.75rem' }}>
+              {error}
+            </div>
+          )}
           {supportsGrams && readyToEdit && (
             <div className="field" style={{ marginTop: '1rem' }}>
               <label htmlFor="grams">
@@ -592,6 +627,7 @@ export function RecordPage() {
               <input
                 id={key}
                 inputMode="decimal"
+                placeholder="0"
                 data-testid={`manual-field-${key}`}
                 value={nutrientDrafts[key] ?? ''}
                 onChange={(e) => setField(key, e.target.value)}

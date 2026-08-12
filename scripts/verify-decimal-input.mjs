@@ -85,18 +85,18 @@ await page.goto(`${BASE}/record?mode=manual`, { waitUntil: 'networkidle' });
 await page.locator('#name').fill('プロテイン少量');
 
 const protein = page.getByTestId('manual-field-protein_g');
-await protein.fill('');
+await protein.click();
 await protein.pressSequentially('0.5', { delay: 30 });
 assert.equal(await protein.inputValue(), '0.5');
 
 const salt = page.getByTestId('manual-field-salt_g');
-await salt.fill('');
+await salt.click();
 await salt.pressSequentially('1.2', { delay: 30 });
 assert.equal(await salt.inputValue(), '1.2');
 
 // 入力途中の「3.」が消えないこと
 const fat = page.getByTestId('manual-field-fat_g');
-await fat.fill('');
+await fat.click();
 await fat.pressSequentially('3.', { delay: 30 });
 assert.equal(await fat.inputValue(), '3.');
 await fat.pressSequentially('4', { delay: 30 });
