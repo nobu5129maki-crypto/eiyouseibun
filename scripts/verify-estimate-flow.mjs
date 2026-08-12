@@ -55,6 +55,7 @@ async function ensurePreview() {
     cwd: root,
     shell: true,
     stdio: 'pipe',
+    detached: true,
   });
   for (let i = 0; i < 80; i++) {
     try {
