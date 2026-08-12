@@ -16,7 +16,7 @@ const pageSrc = fs.readFileSync(path.join(root, 'src/pages/RecordPage.tsx'), 'ut
 assert.match(pageSrc, /isNutrientDraftText/);
 assert.match(pageSrc, /parseNutrientDraft/);
 assert.match(pageSrc, /nutrientDrafts/);
-assert.match(pageSrc, /isNutrientDraftText[\s\S]*?\\d\*\\\.\\?\\d\*/);
+assert.ok(pageSrc.includes('/^\\d*\\.?\\d*$/'));
 
 const profileState = {
   profile: {
