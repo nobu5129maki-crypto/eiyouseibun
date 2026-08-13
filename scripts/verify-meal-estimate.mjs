@@ -25,32 +25,32 @@ function approx(a, b, eps = 0.15) {
 }
 
 const dbSrc = fs.readFileSync(path.join(root, 'src/lib/foodDatabase.ts'), 'utf8');
+const mextSrc = fs.readFileSync(path.join(root, 'src/data/mext-foods.json'), 'utf8');
+const customSrc = fs.readFileSync(path.join(root, 'src/data/custom-foods.json'), 'utf8');
 const estSrc = fs.readFileSync(path.join(root, 'src/lib/mealEstimate.ts'), 'utf8');
 const pageSrc = fs.readFileSync(path.join(root, 'src/pages/RecordPage.tsx'), 'utf8');
 
-assert.match(dbSrc, /keywords:\s*\['ブロッコリー'/);
-assert.match(dbSrc, /牛乳/);
-assert.match(dbSrc, /アーモンド/);
-assert.match(dbSrc, /ミックスナッツ/);
-assert.match(dbSrc, /くるみ/);
-assert.match(dbSrc, /赤ワイン/);
-assert.match(dbSrc, /焼酎/);
-assert.match(dbSrc, /日本酒/);
-assert.match(dbSrc, /チューハイ/);
-assert.match(dbSrc, /かつ丼/);
-assert.match(dbSrc, /天丼/);
-assert.match(dbSrc, /カツカレー/);
-assert.match(dbSrc, /mode:\s*'per100ml'/);
-assert.match(dbSrc, /energy_kcal:\s*67/);
+assert.match(dbSrc, /mext-foods\.json/);
+assert.match(mextSrc, /ブロッコリー/);
+assert.match(mextSrc, /牛乳/);
+assert.match(mextSrc, /アーモンド/);
+assert.match(mextSrc, /くるみ/);
+assert.match(customSrc, /ミックスナッツ/);
+assert.match(customSrc, /赤ワイン/);
+assert.match(customSrc, /焼酎/);
+assert.match(customSrc, /かつ丼/);
+assert.match(customSrc, /天丼/);
+assert.match(customSrc, /カツカレー/);
+assert.match(dbSrc, /per100ml/);
 assert.match(estSrc, /parseMlFromText/);
 assert.match(estSrc, /amountUnitOf/);
 assert.match(estSrc, /isScalableFood/);
 assert.match(pageSrc, /分量（ミリリットル）/);
 assert.match(pageSrc, /amountUnit/);
 
-const milk100 = { energy_kcal: 67, protein_g: 3.3, fat_g: 3.8, carb_g: 4.8 };
+const milk100 = { energy_kcal: 61, protein_g: 3.3, fat_g: 3.8, carb_g: 4.8 };
 const m200 = scaleNutrients(milk100, 2);
-approx(m200.energy_kcal, 134);
+approx(m200.energy_kcal, 122);
 approx(m200.protein_g, 6.6);
 
 const out = path.join(root, 'scripts', '.tmp-mealEstimate.mjs');
@@ -65,13 +65,13 @@ const milk = mod.estimateMealFromText('牛乳');
 assert.equal(milk.supportsGrams, true);
 assert.equal(milk.amountUnit, 'ml');
 assert.equal(milk.grams, 200);
-approx(milk.nutrients.energy_kcal, 134, 1);
+approx(milk.nutrients.energy_kcal, 122, 1);
 approx(milk.nutrients.protein_g, 6.6, 0.2);
 approx(milk.nutrients.calcium_mg, 220, 1);
 
 const milk150 = mod.estimateMealFromText('牛乳150ml');
 assert.equal(milk150.grams, 150);
-approx(milk150.nutrients.energy_kcal, 100.5, 1);
+approx(milk150.nutrients.energy_kcal, 91.5, 1);
 
 const lowfat = mod.estimateMealFromText('低脂肪牛乳');
 approx(lowfat.nutrients.energy_kcal, 92, 1);
@@ -79,24 +79,28 @@ assert.ok(lowfat.nutrients.energy_kcal < milk.nutrients.energy_kcal);
 
 const soy = mod.estimateMealFromText('豆乳200ml');
 assert.equal(soy.grams, 200);
-approx(soy.nutrients.energy_kcal, 92, 1);
+approx(soy.nutrients.energy_kcal, 86, 2);
 
 const broccoli = mod.estimateMealFromText('ブロッコリー');
 assert.equal(broccoli.amountUnit, 'g');
-approx(broccoli.nutrients.energy_kcal, 33, 0.5);
+approx(broccoli.nutrients.energy_kcal, 37, 0.5);
 
-// ナッツ類（既定25g）: アーモンド 578kcal/100g → 約144.5
+const komatsuna = mod.estimateMealFromText('小松菜');
+assert.match(komatsuna.displayName, /こまつな|小松菜/);
+approx(komatsuna.nutrients.energy_kcal, 13, 0.5);
+
+// ナッツ類（既定25g）: アーモンド 608kcal/100g → 152
 const almond = mod.estimateMealFromText('アーモンド');
 assert.equal(almond.supportsGrams, true);
 assert.equal(almond.amountUnit, 'g');
 assert.equal(almond.grams, 25);
-approx(almond.nutrients.energy_kcal, 144.5, 2);
-approx(almond.nutrients.protein_g, 5.3, 0.3);
+approx(almond.nutrients.energy_kcal, 152, 2);
+approx(almond.nutrients.protein_g, 5.1, 0.3);
 approx(almond.nutrients.fat_g, 13.5, 0.4);
 
 const almond40 = mod.estimateMealFromText('アーモンド40g');
 assert.equal(almond40.grams, 40);
-approx(almond40.nutrients.energy_kcal, 231.2, 2);
+approx(almond40.nutrients.energy_kcal, 243.2, 2);
 
 const mixed = mod.estimateMealFromText('ミックスナッツ');
 assert.equal(mixed.grams, 30);
@@ -133,11 +137,11 @@ approx(shochu.nutrients.energy_kcal, 87.6, 2); // 146*0.6
 
 const sake = mod.estimateMealFromText('日本酒');
 assert.equal(sake.grams, 180);
-approx(sake.nutrients.energy_kcal, 196.2, 3); // 109*1.8
+approx(sake.nutrients.energy_kcal, 192.6, 3); // 107*1.8
 
 const chuhai = mod.estimateMealFromText('チューハイ');
 assert.equal(chuhai.grams, 350);
-approx(chuhai.nutrients.energy_kcal, 175, 3); // 50*3.5
+approx(chuhai.nutrients.energy_kcal, 178.5, 3); // 51*3.5
 
 const whisky = mod.estimateMealFromText('ウイスキー');
 assert.equal(whisky.grams, 30);

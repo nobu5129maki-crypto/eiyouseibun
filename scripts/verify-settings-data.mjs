@@ -17,5 +17,6 @@ assert.match(src, /settings-meal-list/);
 assert.match(src, /settings-delete-meal/);
 assert.match(src, /すべてのデータを削除/);
 assert.match(src, /保存済みの食事記録/);
+assert.match(src, /MEXT_FOOD_SOURCE/);
 
 console.log('verify-settings-data: OK');

@@ -8,6 +8,7 @@ import {
   GOAL_LABELS,
   SEX_LABELS,
 } from '../lib/targets';
+import { MEXT_FOOD_SOURCE } from '../lib/foodDatabase';
 import { useApp } from '../store/AppContext';
 
 const MEAL_SLOT_LABEL = {
@@ -79,6 +80,15 @@ export function SettingsPage() {
               {DRI_SOURCE.name}
             </a>
             」（{DRI_SOURCE.period}）に基づく簡易目安です。基準が改定されたときはアプリ側の目安も更新します。医療上の指示がある場合はそれに従ってください。
+          </p>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>
+            テキスト推測の食品データは
+            {MEXT_FOOD_SOURCE.publisher}
+            「
+            <a href={MEXT_FOOD_SOURCE.url} target="_blank" rel="noreferrer">
+              {MEXT_FOOD_SOURCE.name}
+            </a>
+            」の収載{MEXT_FOOD_SOURCE.foodCount}食品（可食部100g/100ml）に、料理1食分の概算を加えたものです。
           </p>
 
           <Link className="btn btn-primary" to="/onboarding" style={{ textAlign: 'center' }}>
