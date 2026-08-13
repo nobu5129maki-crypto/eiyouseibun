@@ -177,20 +177,30 @@ function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
   // 「スタバのソイラテ」など: ブランド汎用（*_generic）は具体メニューがあるとき落とす
   const withoutBrandGeneric = afterSubsume.filter((a) => {
     if (!a.food.id.endsWith('_generic')) return true;
-    return !afterSubsume.some(
-      (b) => b.food.id !== a.food.id && b.food.weight > a.food.weight,
-    );
+    return !afterSubsume.some((b) => b.food.id !== a.food.id);
   });
 
-  return withoutBrandGeneric.filter((a) => {
+  const keywordsOverlap = (a: string[], b: string[]) =>
+    a.some((ak) => b.some((bk) => ak === bk || ak.includes(bk) || bk.includes(ak)));
+
+  // 料理（1食）が当たっているときは、同じ語の食材換算を足し込まない
+  const withoutDishOverlap = withoutBrandGeneric.filter((a) => {
     if (!isScalableFood(a.food)) return true;
     return !withoutBrandGeneric.some(
       (b) =>
         b.food.id !== a.food.id &&
+        !isScalableFood(b.food) &&
+        keywordsOverlap(a.food.keywords, b.food.keywords),
+    );
+  });
+
+  return withoutDishOverlap.filter((a) => {
+    if (!isScalableFood(a.food)) return true;
+    return !withoutDishOverlap.some(
+      (b) =>
+        b.food.id !== a.food.id &&
         b.food.weight > a.food.weight &&
-        b.food.keywords.some((bk) =>
-          a.food.keywords.some((ak) => bk.includes(ak) || ak.includes(bk)),
-        ),
+        keywordsOverlap(a.food.keywords, b.food.keywords),
     );
   });
 }

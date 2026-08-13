@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "check:dri": "node scripts/check-dri-update.mjs",
+    "import:mext": "python3 scripts/import-mext-foods.py",
     "verify:targets": "node scripts/verify-targets.mjs"
   },
   "dependencies": {

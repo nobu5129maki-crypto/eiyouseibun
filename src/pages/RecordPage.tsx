@@ -393,7 +393,7 @@ export function RecordPage() {
               id="meal"
               value={mealText}
               onChange={(e) => setMealText(e.target.value)}
-              placeholder="例: 赤ワイン120ml、焼酎、ビール、アーモンド25g"
+              placeholder="例: 小松菜、赤ワイン120ml、かつ丼、アーモンド25g"
             />
           </div>
           <p className="muted" style={{ fontSize: '0.8rem' }}>
