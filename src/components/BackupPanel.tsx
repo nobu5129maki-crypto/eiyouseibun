@@ -6,6 +6,7 @@ import {
   parseBackup,
   stringifyBackup,
 } from '../lib/backup';
+import { createBackupFile, exportBackupFile, isAbortError } from '../lib/backupExport';
 import type { AppState } from '../types';
 
 export function BackupPanel({
@@ -31,16 +32,13 @@ export function BackupPanel({
     setError('');
     try {
       const backup = makeBackup(state);
-      const file = new File([stringifyBackup(backup)], backupFileName(backup.exportedAt), {
-        type: 'application/json',
-      });
-      const shared = await shareBackup(file);
-      if (!shared) downloadBackup(file);
+      const file = createBackupFile(stringifyBackup(backup), backupFileName(backup.exportedAt));
+      await exportBackupFile(file);
       setMessage(
         `${backupSummary(backup)}を書き出しました。メールやファイルアプリに残すと、履歴を消しても戻せます。`,
       );
     } catch (err) {
-      if (isAbort(err)) return;
+      if (isAbortError(err)) return;
       setError('書き出せませんでした。もう一度試してください。');
     } finally {
       setBusy(false);
@@ -114,29 +112,4 @@ export function BackupPanel({
       {error ? <p className="alert danger">{error}</p> : null}
     </section>
   );
-}
-
-async function shareBackup(file: File): Promise<boolean> {
-  const nav = navigator as Navigator & {
-    canShare?: (data: ShareData) => boolean;
-  };
-  if (!nav.share || !nav.canShare?.({ files: [file] })) return false;
-  await nav.share({ files: [file], title: '栄養バランス バックアップ' });
-  return true;
-}
-
-function downloadBackup(file: File) {
-  const url = URL.createObjectURL(file);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = file.name;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function isAbort(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && 'name' in err && (err as { name: string }).name === 'AbortError';
 }
