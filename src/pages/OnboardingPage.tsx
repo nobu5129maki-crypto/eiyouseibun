@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BackupPanel } from '../components/BackupPanel';
 import {
   ACTIVITY_LABELS,
   DRI_SOURCE,
@@ -11,7 +12,7 @@ import { useApp } from '../store/AppContext';
 import type { ActivityLevel, GoalType, Sex } from '../types';
 
 export function OnboardingPage() {
-  const { saveProfile, profile } = useApp();
+  const { saveProfile, profile, targets, meals, restoreAll } = useApp();
   const navigate = useNavigate();
   const isEditing = Boolean(profile);
 
@@ -78,6 +79,17 @@ export function OnboardingPage() {
           {DRI_SOURCE.name} 等に基づく簡易目安）。
         </p>
       </header>
+
+      {!isEditing ? (
+        <BackupPanel
+          state={{ profile, targets, meals }}
+          restoreAll={restoreAll}
+          showExport={false}
+          onRestored={(next) => {
+            if (next.profile) navigate('/');
+          }}
+        />
+      ) : null}
 
       <form className="card stack" onSubmit={onSubmit}>
         <div className="field">

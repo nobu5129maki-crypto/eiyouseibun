@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check:dri": "node scripts/check-dri-update.mjs",
     "import:mext": "python3 scripts/import-mext-foods.py",
-    "verify:targets": "node scripts/verify-targets.mjs"
+    "verify:targets": "node scripts/verify-targets.mjs",
+    "verify:backup": "node scripts/verify-backup.mjs"
   },
   "dependencies": {
     "react": "^19.2.3",

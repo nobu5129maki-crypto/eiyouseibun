@@ -167,6 +167,10 @@ a {
   border: 1px solid var(--danger);
 }
 
+.file-hidden {
+  display: none;
+}
+
 .chip {
   border: 1px solid var(--border);
   background: var(--surface);

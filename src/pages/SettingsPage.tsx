@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { BackupPanel } from '../components/BackupPanel';
 import { CameraPermissionPanel } from '../components/CameraPermissionPanel';
 import { InstallAppPanel } from '../components/InstallAppPanel';
 import { formatTime, todayKey } from '../lib/date';
@@ -25,7 +26,7 @@ const INPUT_LABEL = {
 } as const;
 
 export function SettingsPage() {
-  const { profile, targets, clearAll, meals, deleteMeal } = useApp();
+  const { profile, targets, clearAll, meals, deleteMeal, restoreAll } = useApp();
 
   return (
     <div className="stack">
@@ -37,6 +38,11 @@ export function SettingsPage() {
       </header>
 
       <InstallAppPanel />
+
+      <BackupPanel
+        state={{ profile, targets, meals }}
+        restoreAll={restoreAll}
+      />
 
       <section className="card">
         <h2>カメラ設定</h2>

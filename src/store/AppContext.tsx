@@ -33,6 +33,7 @@ type AppContextValue = {
   addMeal: (meal: Omit<MealLog, 'id' | 'loggedAt'> & { loggedAt?: string }) => MealLog;
   deleteMeal: (id: string) => void;
   clearAll: () => void;
+  restoreAll: (next: { profile: UserProfile | null; targets: DailyTargets | null; meals: MealLog[] }) => void;
 };
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -128,6 +129,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     persist({ profile: null, targets: null, meals: [] });
   }, [persist]);
 
+  const restoreAll = useCallback(
+    (next: {
+      profile: UserProfile | null;
+      targets: DailyTargets | null;
+      meals: MealLog[];
+    }) => {
+      const nextTargets = next.profile
+        ? calculateDailyTargets(next.profile)
+        : next.targets;
+      persist({
+        profile: next.profile,
+        targets: nextTargets,
+        meals: next.meals,
+      });
+    },
+    [persist],
+  );
+
   const day = todayKey();
   const todayMeals = useMemo(
     () => meals.filter((m) => isSameDay(m.loggedAt, day)),
@@ -152,6 +171,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addMeal,
       deleteMeal,
       clearAll,
+      restoreAll,
     }),
     [
       ready,
@@ -165,6 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addMeal,
       deleteMeal,
       clearAll,
+      restoreAll,
     ],
   );
 
