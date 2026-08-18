@@ -148,13 +148,25 @@ export function SettingsPage() {
           </div>
         )}
 
+        <p className="muted" style={{ fontSize: '0.85rem', marginTop: 8 }}>
+          食事記録は端末内の短いテキストです。履歴が増えてもアプリが重くなることはほぼありません。容量のために消す必要はありません。
+          個別の食事は上の「削除」、最初からやり直すときだけ下の全削除を使ってください。
+        </p>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          「すべてのデータを削除」は、プロフィールと履歴を含むすべての食事記録を消します。バックアップがないと戻せません。
+        </p>
+
         <button
           type="button"
           className="btn btn-danger"
-          style={{ marginTop: 12 }}
+          style={{ marginTop: 4 }}
           data-testid="settings-clear-all"
           onClick={() => {
-            if (confirm('プロフィールとすべての食事記録を削除しますか？')) {
+            if (
+              confirm(
+                'プロフィールと、履歴を含むすべての食事記録を削除しますか？この操作は取り消せません。',
+              )
+            ) {
               clearAll();
             }
           }}

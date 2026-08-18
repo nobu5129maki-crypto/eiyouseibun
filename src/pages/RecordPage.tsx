@@ -10,12 +10,39 @@ import {
   nutrientsForGrams,
 } from '../lib/mealEstimate';
 import {
+  clampRecordDay,
+  formatDisplayDate,
+  isoFromLocalDay,
+  minRecordDay,
+  todayKey,
+} from '../lib/date';
+import {
   PRIMARY_NUTRIENTS,
   getTargetValue,
   percentOfTarget,
 } from '../lib/nutrition';
 import { useApp } from '../store/AppContext';
 import type { InputMethod, MealSlot, NutrientValues } from '../types';
+
+const SLOT_DEFAULT_TIME: Record<MealSlot, { hours: number; minutes: number }> = {
+  breakfast: { hours: 8, minutes: 0 },
+  lunch: { hours: 12, minutes: 30 },
+  dinner: { hours: 19, minutes: 0 },
+  snack: { hours: 15, minutes: 30 },
+};
+
+function loggedAtForDay(day: string, slot: MealSlot): string {
+  const now = new Date();
+  if (day === todayKey(now)) {
+    return isoFromLocalDay(day, {
+      hours: now.getHours(),
+      minutes: now.getMinutes(),
+      seconds: now.getSeconds(),
+      ms: now.getMilliseconds(),
+    });
+  }
+  return isoFromLocalDay(day, SLOT_DEFAULT_TIME[slot]);
+}
 
 const SLOTS: { key: MealSlot; label: string }[] = [
   { key: 'breakfast', label: '朝' },
@@ -78,10 +105,13 @@ type Mode = 'text' | 'manual' | 'ocr';
 export function RecordPage() {
   const [params] = useSearchParams();
   const modeParam = params.get('mode');
+  const dateParam = params.get('date');
   const mode: Mode =
     modeParam === 'manual' ? 'manual' : modeParam === 'ocr' ? 'ocr' : 'text';
   const navigate = useNavigate();
   const { targets, addMeal } = useApp();
+  const today = todayKey();
+  const [recordDay, setRecordDay] = useState(() => clampRecordDay(dateParam));
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const resultSectionRef = useRef<HTMLFormElement>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -149,10 +179,17 @@ export function RecordPage() {
   }, [inputMethod, readyToEdit, nutrients]);
 
   useEffect(() => {
+    if (!dateParam) return;
+    setRecordDay(clampRecordDay(dateParam));
+  }, [dateParam]);
+
+  useEffect(() => {
     if (!readyToEdit) return;
     // テキスト推測・OCR・手入力いずれも結果欄へスクロール
     resultSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [readyToEdit, inputMethod, resultFocusKey]);
+
+  const isPastDay = recordDay !== today;
 
   const applyNutrients = (next: NutrientValues) => {
     setNutrients(next);
@@ -353,6 +390,7 @@ export function RecordPage() {
       mealSlot,
       inputMethod,
       note: note || undefined,
+      loggedAt: loggedAtForDay(recordDay, mealSlot),
       nutrients: {
         energy_kcal: energy,
         protein_g: protein,
@@ -369,7 +407,7 @@ export function RecordPage() {
       setError('記録の保存に失敗しました。もう一度お試しください。');
       return;
     }
-    navigate('/', { replace: true });
+    navigate(isPastDay ? '/history' : '/', { replace: true });
   };
 
   return (
@@ -383,6 +421,27 @@ export function RecordPage() {
         </h1>
         <p className="muted">{subtitle}</p>
       </header>
+
+      <section className="card" data-testid="record-day-card">
+        <h2>記録する日</h2>
+        <div className="field">
+          <label htmlFor="record-day">日付</label>
+          <input
+            id="record-day"
+            type="date"
+            data-testid="record-day"
+            min={minRecordDay()}
+            max={today}
+            value={recordDay}
+            onChange={(e) => setRecordDay(clampRecordDay(e.target.value))}
+          />
+        </div>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          {isPastDay
+            ? `${formatDisplayDate(recordDay)}の入力忘れを記録します。保存後は履歴に表示されます。`
+            : '入力し忘れた日は、日付を過去に変えて追加できます。'}
+        </p>
+      </section>
 
       {mode === 'text' && (
         <section className="card">
@@ -664,7 +723,7 @@ export function RecordPage() {
           {error && <div className="alert danger">{error}</div>}
 
           <button type="submit" className="btn btn-primary" disabled={loading}>
-            記録してホームへ
+            {isPastDay ? '記録して履歴へ' : '記録してホームへ'}
           </button>
         </form>
       )}

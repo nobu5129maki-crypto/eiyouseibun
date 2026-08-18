@@ -5,6 +5,44 @@ export function todayKey(date = new Date()): string {
   return `${y}-${m}-${d}`;
 }
 
+export function isValidDayKey(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  return todayKey(parseDayKey(day)) === day;
+}
+
+/** 記録できる最も古い日（3年前）。容量ではなく入力忘れの現実的な範囲 */
+export function minRecordDay(now = new Date()): string {
+  return todayKey(new Date(now.getFullYear() - 3, now.getMonth(), now.getDate()));
+}
+
+export function clampRecordDay(day: string | null | undefined, now = new Date()): string {
+  const max = todayKey(now);
+  const min = minRecordDay(now);
+  if (!day || !isValidDayKey(day)) return max;
+  if (day > max) return max;
+  if (day < min) return min;
+  return day;
+}
+
+export function isoFromLocalDay(
+  day: string,
+  time: { hours: number; minutes: number; seconds?: number; ms?: number } = {
+    hours: 12,
+    minutes: 0,
+  },
+): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(
+    y,
+    m - 1,
+    d,
+    time.hours,
+    time.minutes,
+    time.seconds ?? 0,
+    time.ms ?? 0,
+  ).toISOString();
+}
+
 /** ISO日時をローカル日付で比較（UTC日付ずれを防ぐ） */
 export function isSameDay(iso: string, day = todayKey()): boolean {
   const d = new Date(iso);

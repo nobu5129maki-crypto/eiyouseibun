@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { HistoryChart } from '../components/HistoryChart';
-import { formatTime, todayKey } from '../lib/date';
+import { clampRecordDay, formatTime, minRecordDay, todayKey } from '../lib/date';
 import {
   bucketsForRange,
   buildChartSeries,
@@ -39,6 +40,8 @@ export function HistoryPage() {
   const [range, setRange] = useState<HistoryRange>('day');
   const [nutrientKey, setNutrientKey] = useState<NutrientKey>('energy_kcal');
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const today = todayKey();
+  const [backfillDay, setBackfillDay] = useState(today);
 
   const buckets = useMemo(() => bucketsForRange(meals, range), [meals, range]);
   const chartPoints = useMemo(() => {
@@ -66,6 +69,33 @@ export function HistoryPage() {
         </h1>
         <p className="muted">日・週・月の摂取サマリをグラフで確認できます。</p>
       </header>
+
+      <section className="card" data-testid="history-backfill">
+        <h2>入力忘れを追加</h2>
+        <div className="field">
+          <label htmlFor="history-backfill-day">日付</label>
+          <input
+            id="history-backfill-day"
+            type="date"
+            data-testid="history-backfill-day"
+            min={minRecordDay()}
+            max={today}
+            value={backfillDay}
+            onChange={(e) => setBackfillDay(clampRecordDay(e.target.value))}
+          />
+        </div>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
+          記録が無い日も含め、過去の日付を選んで入力できます。
+        </p>
+        <Link
+          className="btn btn-secondary"
+          to={`/record?date=${backfillDay}`}
+          style={{ textAlign: 'center' }}
+          data-testid="history-backfill-go"
+        >
+          この日の食事を入力
+        </Link>
+      </section>
 
       <section className="card">
         <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -186,6 +216,17 @@ export function HistoryPage() {
               >
                 {open ? '食事明細を閉じる' : `食事明細（${bucket.meals.length}件）`}
               </button>
+            )}
+
+            {range === 'day' && (
+              <Link
+                className="btn btn-secondary"
+                to={`/record?date=${bucket.key}`}
+                style={{ textAlign: 'center' }}
+                data-testid="history-add-for-day"
+              >
+                この日の忘れ分を入力
+              </Link>
             )}
 
             {open &&

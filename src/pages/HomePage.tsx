@@ -111,6 +111,9 @@ export function HomePage() {
         >
           数値を手入力
         </Link>
+        <p className="muted" style={{ fontSize: '0.85rem', textAlign: 'center' }}>
+          入力し忘れた日は、記録画面で日付を過去に変えて追加できます。
+        </p>
       </div>
 
       {advice.length > 0 && (
