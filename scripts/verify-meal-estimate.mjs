@@ -41,6 +41,8 @@ assert.match(customSrc, /焼酎/);
 assert.match(customSrc, /かつ丼/);
 assert.match(customSrc, /天丼/);
 assert.match(customSrc, /カツカレー/);
+assert.match(customSrc, /焼きシャケ/);
+assert.match(estSrc, /しゃけ/);
 assert.match(dbSrc, /per100ml/);
 assert.match(estSrc, /parseMlFromText/);
 assert.match(estSrc, /amountUnitOf/);
@@ -303,6 +305,57 @@ for (const [input, re, kcal] of ippinCases) {
     `ippin single match for ${input}: ${r.matchedKeywords.join(',')}`,
   );
 }
+
+// 鮭・シャケ・焼き魚の日常表記
+const grilledFishCases = [
+  ['鮭', /鮭/, 220],
+  ['シャケ', /鮭/, 220],
+  ['焼きシャケ', /鮭/, 220],
+  ['焼き鮭', /鮭/, 220],
+  ['塩鮭', /鮭/, 220],
+  ['銀鮭', /鮭/, 220],
+  ['紅鮭', /鮭/, 220],
+  ['さば', /さば/, 260],
+  ['鯖', /さば/, 260],
+  ['焼きサバ', /さば/, 260],
+  ['さばの塩焼き', /さば/, 260],
+  ['ぶりの塩焼き', /ぶり/, 280],
+  ['焼きぶり', /ぶり/, 280],
+  ['さんま', /さんま/, 300],
+  ['焼きさんま', /さんま/, 300],
+  ['ほっけ', /ほっけ/, 240],
+  ['焼きホッケ', /ほっけ/, 240],
+  ['めざし', /めざし/, 160],
+  ['いわしの塩焼き', /いわし/, 260],
+  ['たらの塩焼き', /たら/, 180],
+  ['たら', /たら/, 180],
+  ['さわらの塩焼き', /さわら/, 240],
+  ['さわら', /さわら/, 240],
+  ['きんめだい', /きんめ/, 250],
+  ['焼き魚', /魚/, 250],
+];
+for (const [input, re, kcal] of grilledFishCases) {
+  const r = mod.estimateMealFromText(input);
+  assert.match(r.displayName, re, `grill: ${input} -> ${r.displayName}`);
+  approx(r.nutrients.energy_kcal, kcal, 1);
+  assert.ok(r.confidence > 0, `grill confidence ${input}`);
+  assert.ok(
+    r.nutrients.protein_g > 0,
+    `grill protein ${input}: ${r.nutrients.protein_g}`,
+  );
+  assert.equal(
+    r.matchedKeywords.length,
+    1,
+    `grill single match for ${input}: ${r.displayName} / ${r.matchedKeywords.join(',')}`,
+  );
+}
+
+const cassava = mod.estimateMealFromText('キャッサバ');
+assert.ok(!/さば/.test(cassava.displayName), `cassava must not match さば: ${cassava.displayName}`);
+
+const sakeOnly = mod.estimateMealFromText('シャケ');
+assert.ok(!/\+/.test(sakeOnly.displayName), `シャケ must be one dish: ${sakeOnly.displayName}`);
+assert.ok(!/節/.test(sakeOnly.displayName), `シャケ must not match サケ節: ${sakeOnly.displayName}`);
 
 const tebaKara = mod.estimateMealFromText('手羽先唐揚げ');
 assert.ok(!/唐揚げ$/.test(tebaKara.displayName) || /手羽/.test(tebaKara.displayName));

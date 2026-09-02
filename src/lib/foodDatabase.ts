@@ -56,10 +56,20 @@ const EMPTY: NutrientValues = {
 const CUSTOM_FOODS = customFoodsJson as FoodEntry[];
 const reservedKeywords = new Set(CUSTOM_FOODS.flatMap((f) => f.keywords));
 
-const MEXT_FOODS = (mextFoodsJson as FoodEntry[]).map((food) => ({
-  ...food,
-  keywords: food.keywords.filter((k) => !reservedKeywords.has(k)),
-}));
+/** 誤って乗った短い別名（例: キャッサバ ⊂ サバ）を落とす */
+const DROP_KEYWORDS: Record<string, string[]> = {
+  mext_02028: ['さば', 'サバ'],
+};
+
+const MEXT_FOODS = (mextFoodsJson as FoodEntry[]).map((food) => {
+  const drop = new Set(DROP_KEYWORDS[food.id] ?? []);
+  return {
+    ...food,
+    keywords: food.keywords.filter(
+      (k) => !reservedKeywords.has(k) && !drop.has(k),
+    ),
+  };
+});
 
 /**
  * 文部科学省「日本食品標準成分表（八訂）増補2023年」の収載食品に、

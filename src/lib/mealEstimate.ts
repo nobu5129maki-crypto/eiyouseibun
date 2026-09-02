@@ -133,21 +133,65 @@ function foldKana(text: string): string {
   );
 }
 
+/** 日常の呼び方を成分表・辞書側の表記へ寄せる */
+const FOOD_ALIASES: [RegExp, string][] = [
+  [/秋刀魚/g, 'さんま'],
+  [/しゃけ/g, 'さけ'],
+  [/鮭/g, 'さけ'],
+  [/鯖/g, 'さば'],
+  [/鯵|鰺/g, 'あじ'],
+  [/鰯/g, 'いわし'],
+  [/鰤/g, 'ぶり'],
+  [/鯛/g, 'たい'],
+  [/鱈/g, 'たら'],
+  [/鰆/g, 'さわら'],
+  [/鱚/g, 'きす'],
+];
+
+function foldFood(text: string): string {
+  let s = foldKana(text.toLowerCase());
+  for (const [re, to] of FOOD_ALIASES) s = s.replace(re, to);
+  return s;
+}
+
+function isOffTopicMatch(food: FoodEntry, queryFolded: string): boolean {
+  const name = foldFood(food.name);
+  if (/節|けずり|削り/.test(name) && !/節|けずり|削り|だし/.test(queryFolded)) {
+    return true;
+  }
+  if (
+    /いくら|すじこ|めふん/.test(name) &&
+    !/いくら|すじこ|めふん/.test(queryFolded)
+  ) {
+    return true;
+  }
+  if (/お茶漬/.test(name) && !/お茶漬|茶漬/.test(queryFolded)) {
+    return true;
+  }
+  return false;
+}
+
+function hasFoldedKeyword(queryFolded: string, keyFolded: string): boolean {
+  if (!keyFolded) return false;
+  if (!queryFolded.includes(keyFolded)) return false;
+  // 2文字以下は「さば⊂キャッサバ」のような誤部分一致を避ける
+  if (keyFolded.length >= 3) return true;
+  const escaped = keyFolded.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(
+    `(?:^|焼き|開き|塩|の|煮|蒸し|焼|ゆで|茹で|炒め|揚げ|生)${escaped}`,
+  ).test(queryFolded);
+}
+
 function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
-  const lower = text.toLowerCase();
-  const folded = foldKana(lower);
+  const folded = foldFood(text);
   const hits: { food: FoodEntry; keyword: string; len: number }[] = [];
 
   for (const food of FOOD_DATABASE) {
+    if (isOffTopicMatch(food, folded)) continue;
     let best: string | null = null;
     for (const k of food.keywords) {
-      const key = k.toLowerCase();
-      const keyFolded = foldKana(key);
-      if (
-        lower.includes(key) ||
-        text.includes(k) ||
-        folded.includes(keyFolded)
-      ) {
+      const keyFolded = foldFood(k);
+      if (hasFoldedKeyword(folded, keyFolded)) {
         if (!best || k.length > best.length) best = k;
       }
     }
@@ -168,9 +212,7 @@ function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
         b.food.id !== a.food.id &&
         b.keyword.length > a.keyword.length &&
         (b.keyword.includes(a.keyword) ||
-          foldKana(b.keyword.toLowerCase()).includes(
-            foldKana(a.keyword.toLowerCase()),
-          )),
+          foldFood(b.keyword).includes(foldFood(a.keyword))),
     );
   });
 
@@ -181,7 +223,14 @@ function findMatches(text: string): { food: FoodEntry; keyword: string }[] {
   });
 
   const keywordsOverlap = (a: string[], b: string[]) =>
-    a.some((ak) => b.some((bk) => ak === bk || ak.includes(bk) || bk.includes(ak)));
+    a.some((ak) =>
+      b.some((bk) => {
+        if (ak === bk || ak.includes(bk) || bk.includes(ak)) return true;
+        const af = foldFood(ak);
+        const bf = foldFood(bk);
+        return af === bf || (af.length >= 2 && (af.includes(bf) || bf.includes(af)));
+      }),
+    );
 
   // 料理（1食）が当たっているときは、同じ語の食材換算を足し込まない
   const withoutDishOverlap = withoutBrandGeneric.filter((a) => {
