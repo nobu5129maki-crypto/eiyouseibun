@@ -119,6 +119,20 @@ function resolveAmount(
   return food.defaultGrams;
 }
 
+/**
+ * 複数品目を分けて分量を読む。「焼き鮭150gとごはん」の 150g がご飯に乗らないようにする。
+ * 「とんかつ」のような語中の「と」では切らない。
+ */
+export function splitMealParts(text: string): string[] {
+  const parts = text
+    .split(
+      /[、,，・／/+＋]|(?<=[ぁ-んァ-ン一-龥0-9gGｍＭlL])と(?=[ぁ-んァ-ン一-龥])/,
+    )
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [text];
+}
+
 function portionFactor(text: string): number {
   if (/大盛|おおもり|特盛/.test(text)) return 1.3;
   if (/小盛|少なめ|半分/.test(text)) return 0.7;
@@ -304,10 +318,53 @@ function emptyEstimate(note: string, displayName = ''): MealEstimate {
 export function estimateMealFromText(
   text: string,
   amountOverride?: number | null,
+  options: { allowSplit?: boolean } = {},
 ): MealEstimate {
   const trimmed = text.trim();
   if (!trimmed) {
     return emptyEstimate('食事内容を入力してください。');
+  }
+
+  const allowSplit = options.allowSplit !== false && amountOverride == null;
+  if (allowSplit) {
+    const parts = splitMealParts(trimmed);
+    if (parts.length > 1) {
+      const estimates = parts.map((part) =>
+        estimateMealFromText(part, null, { allowSplit: false }),
+      );
+      const known = estimates.filter((item) => item.confidence > 0);
+      if (known.length === 0) {
+        return emptyEstimate(
+          '辞書にない食品です。食品名を変えるか、手入力で数値を入れてください（一般的な1食の仮置きはしません）。',
+          trimmed,
+        );
+      }
+
+      let totals = emptyNutrients();
+      const names: string[] = [];
+      const keywords: string[] = [];
+      for (const item of known) {
+        totals = addNutrients(totals, item.nutrients);
+        names.push(item.displayName);
+        keywords.push(...item.matchedKeywords);
+      }
+      const skipped = estimates.length - known.length;
+      return {
+        displayName: names.join(' + '),
+        nutrients: totals,
+        confidence: Math.min(0.9, 0.5 + known.length * 0.12),
+        matchedKeywords: keywords,
+        note:
+          skipped > 0
+            ? `一部は辞書になかったため除いています。「${keywords.join('・')}」から算出しました。保存前に確認してください。`
+            : `「${keywords.join('・')}」から成分表・料理概算で算出しました。保存前に確認してください。`,
+        supportsGrams: false,
+        grams: null,
+        amountUnit: null,
+        per100g: null,
+        source: known.map((item) => item.source).filter(Boolean).join(' / '),
+      };
+    }
   }
 
   const matches = findMatches(trimmed);

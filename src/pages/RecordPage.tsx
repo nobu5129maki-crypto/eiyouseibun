@@ -20,6 +20,7 @@ import {
   PRIMARY_NUTRIENTS,
   getTargetValue,
   percentOfTarget,
+  progressTone,
 } from '../lib/nutrition';
 import { useApp } from '../store/AppContext';
 import type { InputMethod, MealSlot, NutrientValues } from '../types';
@@ -385,29 +386,37 @@ export function RecordPage() {
       setError('栄養素を入力または読み取ってください');
       return;
     }
-    const saved = addMeal({
-      displayName: displayName.trim(),
-      mealSlot,
-      inputMethod,
-      note: note || undefined,
-      loggedAt: loggedAtForDay(recordDay, mealSlot),
-      nutrients: {
-        energy_kcal: energy,
-        protein_g: protein,
-        fat_g: fat,
-        carb_g: carb,
-        salt_g: salt,
-        fiber_g: fiber,
-        vitamin_c_mg: vitaminC,
-        calcium_mg: calcium,
-        iron_mg: iron,
-      },
-    });
-    if (!saved?.id) {
-      setError('記録の保存に失敗しました。もう一度お試しください。');
-      return;
+    try {
+      const saved = addMeal({
+        displayName: displayName.trim(),
+        mealSlot,
+        inputMethod,
+        note: note || undefined,
+        loggedAt: loggedAtForDay(recordDay, mealSlot),
+        nutrients: {
+          energy_kcal: energy,
+          protein_g: protein,
+          fat_g: fat,
+          carb_g: carb,
+          salt_g: salt,
+          fiber_g: fiber,
+          vitamin_c_mg: vitaminC,
+          calcium_mg: calcium,
+          iron_mg: iron,
+        },
+      });
+      if (!saved?.id) {
+        setError('記録の保存に失敗しました。もう一度お試しください。');
+        return;
+      }
+      navigate(isPastDay ? '/history' : '/', { replace: true });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : '記録の保存に失敗しました。もう一度お試しください。',
+      );
     }
-    navigate(isPastDay ? '/history' : '/', { replace: true });
   };
 
   return (
@@ -587,7 +596,9 @@ export function RecordPage() {
         >
           <h2>記録内容（確認・編集）</h2>
           <p className="muted" style={{ fontSize: '0.85rem' }}>
-            数値が違う場合は手で直すか、破棄して再撮影してください。
+            {mode === 'ocr' || inputMethod === 'ocr_label'
+              ? '数値が違う場合は手で直すか、破棄して再撮影してください。'
+              : '数値が違う場合は保存前に手で直せます。'}
           </p>
 
           {ocrSummary && (
@@ -713,7 +724,7 @@ export function RecordPage() {
             <div className="alert ok">
               <strong>1日目安に対する割合</strong>
               {pctPreview.map((p) => (
-                <div key={p.key} className={p.pct >= 100 ? 'pct-over' : undefined}>
+                <div key={p.key} className={progressTone(p.pct, p.key) === 'over' ? 'pct-over' : undefined}>
                   {p.label}: {p.pct}%
                 </div>
               ))}

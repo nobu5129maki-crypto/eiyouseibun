@@ -1,5 +1,5 @@
 /* Eiyo Balance — lightweight service worker for installability */
-const CACHE = 'eiyo-balance-v1';
+const CACHE = 'eiyo-balance-v2';
 const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -29,13 +29,15 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // SPA navigations: network-first, fall back to cached shell
+  // ナビはネットワーク優先。古い index.html が残り続けないようにする
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-cache' })
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/index.html', copy));
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('/index.html', copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() => caches.match('/index.html')),
@@ -43,16 +45,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin assets: cache-first, then network
+  // JS/CSS などもネットワーク優先（以前はキャッシュ優先で修正版が届かなかった）
   event.respondWith(
-    caches.match(req).then((cached) => {
-      if (cached) return cached;
-      return fetch(req).then((res) => {
-        if (!res.ok || res.type !== 'basic') return res;
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
+    fetch(req, { cache: 'no-cache' })
+      .then((res) => {
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+        }
         return res;
-      });
-    }),
+      })
+      .catch(() => caches.match(req)),
   );
 });

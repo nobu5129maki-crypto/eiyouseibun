@@ -44,6 +44,18 @@ export function OnboardingPage() {
       setError('年齢・身長・体重は正の数値で入力してください');
       return null;
     }
+    if (ageN < 1 || ageN > 120) {
+      setError('年齢は 1〜120 で入力してください');
+      return null;
+    }
+    if (h < 50 || h > 250) {
+      setError('身長は 50〜250 cm で入力してください');
+      return null;
+    }
+    if (w < 10 || w > 400) {
+      setError('体重は 10〜400 kg で入力してください');
+      return null;
+    }
     setError('');
     return {
       displayName: displayName.trim(),
@@ -66,8 +78,16 @@ export function OnboardingPage() {
     e.preventDefault();
     const next = buildProfile();
     if (!next) return;
-    saveProfile(next);
-    navigate('/');
+    try {
+      saveProfile(next);
+      navigate('/');
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'プロフィールを保存できませんでした。容量を確認してからもう一度お試しください。',
+      );
+    }
   };
 
   return (

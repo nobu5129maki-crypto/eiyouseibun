@@ -32,7 +32,8 @@ export function HomePage() {
       getIntakeValue(todayIntake, n.key),
       getTargetValue(targets, n.key),
     );
-    return pct >= 100;
+    // タンパク質は目安の達成であり、100%到達を過剰としない（バーと同じ判定）
+    return progressTone(pct, n.key) === 'over';
   });
 
   return (

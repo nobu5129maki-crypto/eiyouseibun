@@ -60,11 +60,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setMeals(state.meals);
     setReady(true);
     if (state.profile && nextTargets) {
-      saveAppState({
-        profile: state.profile,
-        targets: nextTargets,
-        meals: state.meals,
-      });
+      try {
+        saveAppState({
+          profile: state.profile,
+          targets: nextTargets,
+          meals: state.meals,
+        });
+      } catch (error) {
+        console.warn('initial saveAppState failed', error);
+      }
     }
   }, []);
 
@@ -74,11 +78,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       targets: DailyTargets | null;
       meals: MealLog[];
     }) => {
+      saveAppState(next);
       stateRef.current = next;
       setProfile(next.profile);
       setTargets(next.targets);
       setMeals(next.meals);
-      saveAppState(next);
     },
     [],
   );

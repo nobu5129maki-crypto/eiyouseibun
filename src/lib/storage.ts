@@ -24,5 +24,10 @@ export function loadAppState(): AppState {
 }
 
 export function saveAppState(state: AppState): void {
-  localStorage.setItem(KEY, JSON.stringify(state));
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+  } catch (error) {
+    console.warn('saveAppState failed', error);
+    throw new Error('記録を端末に保存できませんでした。容量を確認してからもう一度お試しください。');
+  }
 }

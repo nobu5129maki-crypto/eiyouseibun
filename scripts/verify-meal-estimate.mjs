@@ -350,6 +350,43 @@ for (const [input, re, kcal] of grilledFishCases) {
   );
 }
 
+// 複数品目: 片方の g が他の食品に乗らない
+assert.deepEqual(mod.splitMealParts('焼き鮭150gとごはん'), ['焼き鮭150g', 'ごはん']);
+assert.deepEqual(mod.splitMealParts('とんかつ'), ['とんかつ']);
+assert.deepEqual(mod.splitMealParts('とんかつとごはん'), ['とんかつ', 'ごはん']);
+
+const riceOnly = mod.estimateMealFromText('ごはん');
+const salmonOnly = mod.estimateMealFromText('焼き鮭');
+const salmonRice = mod.estimateMealFromText('焼き鮭150gとごはん');
+assert.match(salmonRice.displayName, /鮭/);
+assert.match(salmonRice.displayName, /ご飯|ごはん|精白米/);
+approx(
+  salmonRice.nutrients.energy_kcal,
+  salmonOnly.nutrients.energy_kcal + riceOnly.nutrients.energy_kcal,
+  3,
+);
+approx(
+  salmonRice.nutrients.protein_g,
+  salmonOnly.nutrients.protein_g + riceOnly.nutrients.protein_g,
+  0.4,
+);
+
+const broc80 = mod.estimateMealFromText('ブロッコリー80g');
+const brocRice = mod.estimateMealFromText('ブロッコリー80gとごはん');
+approx(
+  brocRice.nutrients.energy_kcal,
+  broc80.nutrients.energy_kcal + riceOnly.nutrients.energy_kcal,
+  3,
+);
+assert.ok(
+  /150/.test(brocRice.displayName),
+  `rice must keep default grams, got ${brocRice.displayName}`,
+);
+assert.ok(
+  !/ご飯（精白米・うるち米）（80g）/.test(brocRice.displayName),
+  `80g must not apply to rice: ${brocRice.displayName}`,
+);
+
 const cassava = mod.estimateMealFromText('キャッサバ');
 assert.ok(!/さば/.test(cassava.displayName), `cassava must not match さば: ${cassava.displayName}`);
 

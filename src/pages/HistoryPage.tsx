@@ -14,6 +14,7 @@ import {
   getIntakeValue,
   getTargetValue,
   percentOfTarget,
+  progressTone,
 } from '../lib/nutrition';
 import { useApp } from '../store/AppContext';
 import type { NutrientKey } from '../types';
@@ -164,7 +165,7 @@ export function HistoryPage() {
                   getIntakeValue(bucket.intake, n.key),
                   target,
                 );
-                return pct >= 100;
+                return progressTone(pct, n.key) === 'over';
               }).map((n) => n.label);
 
         const open = expandedKey === bucket.key || range === 'day';
