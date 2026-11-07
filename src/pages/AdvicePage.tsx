@@ -1,7 +1,7 @@
 import { useApp } from '../store/AppContext';
 
 export function AdvicePage() {
-  const { advice, targets } = useApp();
+  const { advice, targets, todayMeals } = useApp();
 
   return (
     <div className="stack">
@@ -16,7 +16,16 @@ export function AdvicePage() {
 
       {!targets && <p className="muted">先にプロフィールを設定してください。</p>}
 
-      {targets && advice.length === 0 && (
+      {targets && todayMeals.length === 0 && (
+        <div className="alert ok">
+          <strong>今日の記録がまだありません</strong>
+          <div>
+            食事を記録すると、不足しがちな栄養素を提案します。何も記録していない状態を不足とはみなしません。
+          </div>
+        </div>
+      )}
+
+      {targets && todayMeals.length > 0 && advice.length === 0 && (
         <div className="alert ok">
           <strong>大きな不足は見当たりません</strong>
           <div>

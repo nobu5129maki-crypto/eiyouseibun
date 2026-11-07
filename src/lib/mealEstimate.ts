@@ -149,6 +149,7 @@ function foldKana(text: string): string {
 
 /** 日常の呼び方を成分表・辞書側の表記へ寄せる */
 const FOOD_ALIASES: [RegExp, string][] = [
+  [/ぽてち/g, 'ぽてとちっぷす'],
   [/秋刀魚/g, 'さんま'],
   [/しゃけ/g, 'さけ'],
   [/鮭/g, 'さけ'],
@@ -171,6 +172,9 @@ function foldFood(text: string): string {
 function isOffTopicMatch(food: FoodEntry, queryFolded: string): boolean {
   const name = foldFood(food.name);
   if (/節|けずり|削り/.test(name) && !/節|けずり|削り|だし/.test(queryFolded)) {
+    return true;
+  }
+  if (/ばたー/.test(name) && /ぴーなっつ/.test(queryFolded) && !/ぴーなっつ/.test(name)) {
     return true;
   }
   if (

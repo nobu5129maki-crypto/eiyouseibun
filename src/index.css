@@ -55,7 +55,7 @@ a {
 .app-shell {
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px 16px 96px;
+  padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
 }
 
 .brand {
@@ -255,6 +255,7 @@ a {
   grid-template-columns: repeat(4, 1fr);
   max-width: 720px;
   margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom);
   z-index: 20;
 }
 

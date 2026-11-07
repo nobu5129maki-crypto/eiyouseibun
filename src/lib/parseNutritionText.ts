@@ -61,8 +61,160 @@ export function normalizeOcrText(text: string): string {
     .replace(/\r/g, '\n');
 }
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function atwaterKcal(protein: number, fat: number, carb: number): number {
+  return 4 * protein + 9 * fat + 4 * carb;
+}
+
+function coherenceRatio(energy: number, protein: number, fat: number, carb: number): number {
+  const estimated = atwaterKcal(protein, fat, carb);
+  if (energy <= 0 || estimated <= 0) return 0;
+  return Math.min(energy, estimated) / Math.max(energy, estimated);
+}
+
+function tenthIfSuspicious(
+  value: number,
+  min: number,
+  max: number,
+  tenthMin: number,
+  tenthMax: number,
+): number | null {
+  if (!Number.isInteger(value) || value < min || value > max) return null;
+  const tenth = round2(value / 10);
+  if (tenth < tenthMin || tenth > tenthMax) return null;
+  return tenth;
+}
+
+/**
+ * 小数点落ち（70→7.0）は、エネルギーとPFCが約10倍ずれたときだけ補正する。
+ * 1200kcal や脂質50g のように、そのままで辻褄が合う値は変えない。
+ */
+export function reconcileDroppedDecimals(n: NutrientValues): NutrientValues {
+  const energy = n.energy_kcal ?? 0;
+  const protein = n.protein_g ?? 0;
+  const fat = n.fat_g ?? 0;
+  const carb = n.carb_g ?? 0;
+  const salt = n.salt_g ?? 0;
+  const fiber = n.fiber_g ?? 0;
+
+  const proteinTenth = tenthIfSuspicious(protein, 50, 300, 0.5, 45);
+  const fatTenth = tenthIfSuspicious(fat, 40, 300, 0.5, 45);
+  const carbTenth = tenthIfSuspicious(carb, 150, 600, 5, 120);
+  const saltTenth = tenthIfSuspicious(salt, 10, 100, 0.1, 8);
+  const fiberTenth = tenthIfSuspicious(fiber, 30, 200, 0.5, 25);
+  const energyTenth =
+    energy > 2000 && energy <= 4000 && energy % 10 === 0 && energy / 10 >= 50 && energy / 10 <= 900
+      ? energy / 10
+      : null;
+
+  type Variant = {
+    energy_kcal: number;
+    protein_g: number;
+    fat_g: number;
+    carb_g: number;
+    salt_g: number;
+    fiber_g: number;
+    changes: number;
+  };
+
+  const variants: Variant[] = [
+    {
+      energy_kcal: energy,
+      protein_g: protein,
+      fat_g: fat,
+      carb_g: carb,
+      salt_g: salt,
+      fiber_g: fiber,
+      changes: 0,
+    },
+  ];
+
+  const macroChanges =
+    (proteinTenth != null ? 1 : 0) +
+    (fatTenth != null ? 1 : 0) +
+    (carbTenth != null ? 1 : 0) +
+    (saltTenth != null ? 1 : 0) +
+    (fiberTenth != null ? 1 : 0);
+  if (macroChanges > 0) {
+    variants.push({
+      energy_kcal: energy,
+      protein_g: proteinTenth ?? protein,
+      fat_g: fatTenth ?? fat,
+      carb_g: carbTenth ?? carb,
+      salt_g: saltTenth ?? salt,
+      fiber_g: fiberTenth ?? fiber,
+      changes: macroChanges,
+    });
+  }
+  if (energyTenth != null) {
+    variants.push({
+      energy_kcal: energyTenth,
+      protein_g: protein,
+      fat_g: fat,
+      carb_g: carb,
+      salt_g: salt,
+      fiber_g: fiber,
+      changes: 1,
+    });
+    if (macroChanges > 0) {
+      variants.push({
+        energy_kcal: energyTenth,
+        protein_g: proteinTenth ?? protein,
+        fat_g: fatTenth ?? fat,
+        carb_g: carbTenth ?? carb,
+        salt_g: saltTenth ?? salt,
+        fiber_g: fiberTenth ?? fiber,
+        changes: 1 + macroChanges,
+      });
+    }
+  }
+
+  let best = variants[0];
+  let bestScore = coherenceRatio(best.energy_kcal, best.protein_g, best.fat_g, best.carb_g);
+  for (const variant of variants.slice(1)) {
+    const score = coherenceRatio(
+      variant.energy_kcal,
+      variant.protein_g,
+      variant.fat_g,
+      variant.carb_g,
+    );
+    if (score > bestScore + 0.08) {
+      best = variant;
+      bestScore = score;
+      continue;
+    }
+    if (score + 0.08 < bestScore) continue;
+    const saltFixed = salt >= 10 && variant.salt_g < 10 && best.salt_g >= 10;
+    const fiberFixed = fiber >= 30 && variant.fiber_g < 30 && best.fiber_g >= 30;
+    if ((saltFixed || fiberFixed) && score + 0.02 >= bestScore) {
+      best = variant;
+      bestScore = score;
+      continue;
+    }
+    if (variant.changes < best.changes && score + 0.02 >= bestScore) {
+      best = variant;
+      bestScore = score;
+    }
+  }
+
+  return {
+    ...n,
+    energy_kcal: best.energy_kcal,
+    protein_g: round2(best.protein_g),
+    fat_g: round2(best.fat_g),
+    carb_g: round2(best.carb_g),
+    salt_g: round2(best.salt_g),
+    fiber_g: round2(best.fiber_g),
+  };
+}
+
 /**
  * OCRで小数点が落ちた値を、栄養成分として妥当な範囲へ補正する。
+ * 単体の数値だけでは 1200kcal や脂質 50g を壊すため、抽出後は
+ * reconcileDroppedDecimals でまとめて判断する。
  */
 export function recoverMissedDecimal(
   key: keyof NutrientValues,
@@ -100,10 +252,10 @@ export function recoverMissedDecimal(
       }
       break;
     case 'energy_kcal':
-      // 2030 → 203（末尾0の誤読）
-      if (value >= 1000 && value <= 2500 && value % 10 === 0) {
-        const asHundred = value / 10;
-        if (asHundred >= 50 && asHundred <= 900) return asHundred;
+      // 2030 → 203。1000〜2000kcal は実在しうるので割らない
+      if (value > 2000 && value <= 4000 && value % 10 === 0) {
+        const asTenth = value / 10;
+        if (asTenth >= 50 && asTenth <= 900) return asTenth;
       }
       break;
     default:
@@ -226,8 +378,7 @@ function extractByPatterns(text: string): {
           value = Math.round(((value * 2.54) / 1000) * 100) / 100;
         }
 
-        value = recoverMissedDecimal(pattern.key, value);
-        if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;
+        if (pattern.key === 'energy_kcal' && (value < 5 || value > 4000)) continue;
         if (pattern.key !== 'energy_kcal' && value > 500) continue;
 
         const score = servingPriority(text, m.index);
@@ -285,8 +436,7 @@ function extractByLines(text: string, already: string[]): {
       if (value == null && next) value = extractNumberFromLine(next);
       if (value == null && lines[i + 2]) value = extractNumberFromLine(lines[i + 2]);
       if (value == null) continue;
-      value = recoverMissedDecimal(pattern.key, value);
-      if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;
+      if (pattern.key === 'energy_kcal' && (value < 5 || value > 4000)) continue;
       if (pattern.key !== 'energy_kcal' && value > 500) continue;
 
       nutrients[pattern.key] = value;
@@ -323,8 +473,7 @@ function extractByTableGaps(text: string, already: string[]): {
       if (!m?.[1]) continue;
       let value = pickNumber(m[1]);
       if (value == null) continue;
-      value = recoverMissedDecimal(pattern.key, value);
-      if (pattern.key === 'energy_kcal' && (value < 5 || value > 2000)) continue;
+      if (pattern.key === 'energy_kcal' && (value < 5 || value > 4000)) continue;
       if (pattern.key !== 'energy_kcal' && value > 500) continue;
       nutrients[pattern.key] = value;
       matchedKeys.push(pattern.label);
@@ -392,10 +541,14 @@ export function parseNutritionText(rawText: string): ParsedNutrition {
   apply(lineFallback.nutrients);
   apply(tableFallback.nutrients);
 
-  for (const pattern of PATTERNS) {
-    const current = nutrients[pattern.key];
-    if (current == null || current === 0) continue;
-    nutrients[pattern.key] = recoverMissedDecimal(pattern.key, current);
+  const reconciled = reconcileDroppedDecimals(nutrients);
+  (Object.keys(EMPTY) as (keyof NutrientValues)[]).forEach((key) => {
+    nutrients[key] = reconciled[key] ?? 0;
+  });
+  if ((nutrients.energy_kcal ?? 0) > 2500) {
+    nutrients.energy_kcal = 0;
+    const idx = matchedKeys.indexOf('エネルギー');
+    if (idx >= 0) matchedKeys.splice(idx, 1);
   }
 
   const core = ['タンパク質', '脂質', '炭水化物', '食塩相当量', 'エネルギー'];
@@ -479,7 +632,7 @@ export function mergeParsedResults(results: ParsedNutrition[]): ParsedNutrition 
     }
 
     buckets.sort((a, b) => b.score - a.score);
-    nutrients[key] = recoverMissedDecimal(key, buckets[0].value);
+    nutrients[key] = buckets[0].value;
     const label = PATTERNS.find((p) => p.key === key)?.label;
     if (label) matchedKeys.push(label);
   }
@@ -488,16 +641,19 @@ export function mergeParsedResults(results: ParsedNutrition[]): ParsedNutrition 
     results.find((r) => r.servingLabel && !r.servingLabel.includes('読み取り'))
       ?.servingLabel || results[0].servingLabel;
 
+  const reconciled = reconcileDroppedDecimals(nutrients);
+  if ((reconciled.energy_kcal ?? 0) > 2500) reconciled.energy_kcal = 0;
+
   const core = ['タンパク質', '脂質', '炭水化物', '食塩相当量', 'エネルギー'];
   const hit = core.filter((k) => matchedKeys.includes(k)).length;
-  const coherence = energyCoherenceScore(nutrients);
+  const coherence = energyCoherenceScore(reconciled);
   const confidence = Math.min(
     0.99,
     Math.max(...results.map((r) => r.confidence), 0) * 0.45 + hit * 0.1 + coherence * 0.08,
   );
 
   return {
-    nutrients,
+    nutrients: reconciled,
     servingLabel: bestServing,
     matchedKeys,
     confidence,

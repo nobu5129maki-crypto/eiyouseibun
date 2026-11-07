@@ -158,8 +158,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const todayIntake = useMemo(() => sumNutrients(meals, day), [meals, day]);
   const advice = useMemo(
-    () => (targets ? buildAdvice(todayIntake, targets) : []),
-    [targets, todayIntake],
+    () =>
+      targets && todayMeals.length > 0 ? buildAdvice(todayIntake, targets) : [],
+    [targets, todayIntake, todayMeals.length],
   );
 
   const value = useMemo(

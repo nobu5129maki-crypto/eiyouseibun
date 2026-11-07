@@ -25,7 +25,7 @@ export const DRI_SOURCE = {
   url: 'https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/eiyou/syokuji_kijyun.html',
   period: '令和7〜11年度',
   /** check:dri で厚労省ページと突き合わせた日（YYYY-MM-DD） */
-  lastChecked: '2026-09-20',
+  lastChecked: '2026-11-07',
 } as const;
 
 /**

@@ -66,7 +66,7 @@ export function HomePage() {
               key={n.key}
               label={n.label}
               pct={pct}
-              tone={progressTone(pct, n.key)}
+              tone={todayMeals.length === 0 ? 'ok' : progressTone(pct, n.key)}
               valueLabel={`${round(intake)}${n.unit} / ${target}${n.unit}（${pct}%）`}
             />
           );

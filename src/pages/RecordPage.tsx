@@ -142,6 +142,8 @@ export function RecordPage() {
   const [amountUnit, setAmountUnit] = useState<AmountUnit>('g');
   const [per100g, setPer100g] = useState<NutrientValues | null>(null);
   const [resultFocusKey, setResultFocusKey] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const title =
     mode === 'ocr'
@@ -361,6 +363,7 @@ export function RecordPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (savingRef.current) return;
     if (!displayName.trim()) {
       setError('食品名を入力してください');
       return;
@@ -386,6 +389,8 @@ export function RecordPage() {
       setError('栄養素を入力または読み取ってください');
       return;
     }
+    savingRef.current = true;
+    setSaving(true);
     try {
       const saved = addMeal({
         displayName: displayName.trim(),
@@ -406,11 +411,15 @@ export function RecordPage() {
         },
       });
       if (!saved?.id) {
+        savingRef.current = false;
+        setSaving(false);
         setError('記録の保存に失敗しました。もう一度お試しください。');
         return;
       }
       navigate(isPastDay ? '/history' : '/', { replace: true });
     } catch (err) {
+      savingRef.current = false;
+      setSaving(false);
       setError(
         err instanceof Error
           ? err.message
@@ -420,7 +429,7 @@ export function RecordPage() {
   };
 
   return (
-    <div className="stack">
+    <div className="app-shell stack">
       <header>
         <p className="muted">
           <Link to="/">← ホーム</Link>
@@ -733,7 +742,7 @@ export function RecordPage() {
 
           {error && <div className="alert danger">{error}</div>}
 
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading || saving}>
             {isPastDay ? '記録して履歴へ' : '記録してホームへ'}
           </button>
         </form>

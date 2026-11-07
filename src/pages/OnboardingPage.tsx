@@ -91,7 +91,7 @@ export function OnboardingPage() {
   };
 
   return (
-    <div className="stack">
+    <div className="app-shell stack">
       <header>
         <p className="brand">Eiyo Balance</p>
         <p className="muted">
