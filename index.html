@@ -1,6 +1,20 @@
 <!doctype html>
 <html lang="ja">
   <head>
+    <script>
+      (function () {
+        var path = location.pathname || "/";
+        var dir = path.replace(/\/(onboarding|history|advice|settings|record)\/?$/, "/");
+        dir = dir.replace(/\/index\.(html|php)$/, "/");
+        if (dir.slice(-1) !== "/") dir += "/";
+        window.__EIYO_BASE__ = dir;
+        if (!document.querySelector("base")) {
+          var el = document.createElement("base");
+          el.href = dir;
+          document.head.appendChild(el);
+        }
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1f6b4a" />
@@ -10,9 +24,9 @@
     <meta name="apple-mobile-web-app-title" content="Eiyo Balance" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Eiyo Balance</title>
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
