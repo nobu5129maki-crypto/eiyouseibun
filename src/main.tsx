@@ -4,13 +4,14 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 import { registerServiceWorker } from './lib/pwa';
+import { routerBasename } from './lib/publicUrl';
 import { AppProvider } from './store/AppContext';
 
 registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={routerBasename()}>
       <AppProvider>
         <App />
       </AppProvider>

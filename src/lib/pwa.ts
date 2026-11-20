@@ -1,7 +1,9 @@
+import { detectAppBase, publicUrl } from './publicUrl';
+
 export function registerServiceWorker(): void {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    void navigator.serviceWorker.register('/sw.js').catch((err) => {
+    void navigator.serviceWorker.register(publicUrl('sw.js'), { scope: detectAppBase() }).catch((err) => {
       console.warn('Service worker registration failed', err);
     });
   });
